@@ -1,18 +1,17 @@
 import streamlit as st
 import time
 import random
-# 確保 gamedata.py 是最新版
-from gamedata import REGIONS, PROJECT_TYPES, THRESHOLDS, DEMO_SEALS, GREEN_QUEST, GEMS, SETTING_OUT_STEPS, NW_CODES, RANDOM_EVENTS, CONSTRUCTION_METHODS, TEAM_MEMBERS
+from gamedata import * # 匯入 gamedata.py 所有內容
 
 # ==========================================
-# 0. 核心狀態管理
+# 0. 核心狀態管理 (初始化)
 # ==========================================
 if 'game_state' not in st.session_state:
     st.session_state.game_state = {
         "stage": "Launcher",
         "config": {},
         
-        # --- 經營模擬 ---
+        # --- 經營模擬數據 ---
         "current_week": 1,
         "total_weeks": 52,
         "budget_used": 0,
@@ -27,16 +26,17 @@ if 'game_state' not in st.session_state:
             "floor_area": 0, "floor_area_unknown": False,
         },
 
-        # --- Ch1: 開工 ---
+        # --- Ch1: 開工申報 ---
         "hicos_connected": False,
         "demo_seals_cleared": [],
         "doing_paperless": False,
         "commencement_done": False,
+        "ch1_strategy_done": False, # 判斷 Ch1 戰略是否完成
         
-        # --- Ch2: 施工計畫 (新) ---
+        # --- Ch2: 施工計畫 ---
         "collected_gems": [],
         "plan_approved": False,
-        "strategy": {"method": None, "team": {}, "layout": {}}, # 戰略資料
+        "strategy": {"method": None, "team": {}, "layout": {}}, 
         
         # --- Ch3~5 ---
         "is_demo_shield_active": False,
@@ -60,18 +60,19 @@ if 'game_state' not in st.session_state:
         
         "logs": [],
         
-        # 無紙化檔案 (含工地主任證書 NW3500)
+        # 無紙化檔案
         "paperless_raw_files": [
             "開工申報書_用印.docx", "空污費收據.jpg", "拆除施工計畫_核定.pdf",
             "鄰房鑑定報告.pdf", "逕流廢水核備函.jpg", "工地主任證書_含勞保.pdf",
-            "配筋圖_A3.dwg"
+            "配筋圖_A3.dwg", "工地主任自拍照.jpg"
         ],
         "paperless_processed_files": [],
     }
 
 def main():
-    st.set_page_config(page_title="跑照大作戰：戰略升級版", layout="wide", page_icon="🏗️")
+    st.set_page_config(page_title="跑照大作戰：終極完全體", layout="wide", page_icon="🏗️")
     
+    # 隨機事件彈窗 (優先級最高)
     if st.session_state.game_state["active_event"]:
         render_event_dialog()
         return
@@ -86,8 +87,9 @@ def main():
 # ==========================================
 def render_event_dialog():
     evt = st.session_state.game_state["active_event"]
-    st.error(f"🚨 {evt['title']}")
+    st.error(f"🚨 突發狀況：{evt['title']}")
     st.markdown(f"**{evt['desc']}**")
+    
     c1, c2 = st.columns(2)
     if c1.button(f"🅰️ {evt['options'][0]['text']}", use_container_width=True): resolve_event(evt['options'][0])
     if c2.button(f"🅱️ {evt['options'][1]['text']}", use_container_width=True): resolve_event(evt['options'][1])
@@ -136,6 +138,10 @@ def render_launcher():
         dur_unk = cc4.checkbox("不清楚工期")
         dur = cc3.number_input("預計工期", value=6, disabled=dur_unk)
         
+        cc5, cc6 = st.columns([3, 1])
+        floor_unk = cc6.checkbox("不清楚樓地板")
+        floor_area = cc5.number_input("總樓地板面積", value=300, disabled=floor_unk)
+
         if not area_unk and not dur_unk and area * dur >= THRESHOLDS["POLLUTION_FACTOR"]:
             st.error("⚠️ 係數過高：將觸發逕流廢水副本！")
 
@@ -145,7 +151,7 @@ def render_launcher():
             "area": area, "area_unknown": area_unk,
             "duration": dur, "duration_unknown": dur_unk,
             "cost": 3000000, "cost_unknown": False,
-            "floor_area": 300, "floor_area_unknown": False
+            "floor_area": floor_area, "floor_area_unknown": floor_unk
         }
         if "素地" in p_type:
             st.session_state.game_state["demo_phase_passed"] = True
@@ -215,16 +221,49 @@ def advance_week():
     st.rerun()
 
 # ==========================================
-# Ch1: 開工申報
+# Ch1: 開工申報 (資源+外交+任務)
 # ==========================================
 def render_chapter_1():
-    st.header("📂 第一章：開工申報")
+    st.header("📂 第一章：開工申報 (戰略部署)")
     p_data = st.session_state.game_state["project_data"]
     
+    # 1. 資源預估與外交 (新模組)
+    with st.expander("📊 戰略與資源配置 (Resource & Diplomacy)", expanded=True):
+        if p_data["floor_area_unknown"]:
+            st.warning("🔒 樓地板面積不明，無法進行資源精算。")
+        else:
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                ref_steel = p_data["floor_area"] * RESOURCE_RATES["STEEL"]
+                est_steel = st.slider("預估鋼筋 (噸)", int(ref_steel*0.5), int(ref_steel*2.0), int(ref_steel*0.8))
+            with col_r2:
+                ref_conc = p_data["floor_area"] * RESOURCE_RATES["CONCRETE"]
+                est_conc = st.slider("預估混凝土 (m³)", int(ref_conc*0.5), int(ref_conc*2.0), int(ref_conc*1.2))
+            
+            # 儲存準確度供後續判斷
+            steel_acc = abs(est_steel - ref_steel) / ref_steel
+            conc_acc = abs(est_conc - ref_conc) / ref_conc
+            st.session_state.game_state["resource_accurate"] = steel_acc < 0.1 and conc_acc < 0.1
+
+        col_e1, col_e2 = st.columns(2)
+        with col_e1:
+            st.markdown("**環保防禦**")
+            env_choice = st.radio("選擇防護", list(ENV_OPTIONS.keys()), format_func=lambda x: f"{ENV_OPTIONS[x]['name']} (${ENV_OPTIONS[x]['cost']:,})")
+            st.caption(ENV_OPTIONS[env_choice]['desc'])
+        with col_e2:
+            st.markdown("**鄰里外交**")
+            dip_choice = st.select_slider("外交手段", options=list(DIPLOMACY_STRATEGIES.keys()), format_func=lambda x: DIPLOMACY_STRATEGIES[x]['name'])
+            st.caption(DIPLOMACY_STRATEGIES[dip_choice]['desc'])
+
+    st.markdown("---")
+
+    # 2. 行政程序 (任務檢核)
     col_quest, col_system = st.columns([3, 2])
+    
     with col_quest:
         config_type = st.session_state.game_state["config"]["type"]
         
+        # A. 拆除封印
         if "拆併建" in config_type:
             st.subheader("🔥 拆除七大封印")
             with st.container(border=True):
@@ -253,6 +292,7 @@ def render_chapter_1():
         else:
             seals_ok = True
 
+        # B. 環保任務
         st.subheader("🌳 環保任務")
         with st.container(border=True):
             st.checkbox("G01 空污費", value=True, disabled=True)
@@ -276,13 +316,12 @@ def render_chapter_1():
     with col_system:
         st.subheader("💻 數位憑證")
         if not st.session_state.game_state["hicos_connected"]:
-            st.error("⛔ 未偵測到憑證")
             if st.button("插入：工商憑證卡"):
                 time.sleep(0.5)
                 st.session_state.game_state["hicos_connected"] = True
                 st.rerun()
         else:
-            st.success("🟢 HiCOS 已連線")
+            st.success("🟢 HiCOS 連線")
             if seals_ok and green_ok:
                 if st.button("進入虛擬桌面 (上傳)", type="primary"):
                     st.session_state.game_state["doing_paperless"] = True
@@ -291,6 +330,16 @@ def render_chapter_1():
                 st.warning("🔒 任務未解鎖")
                 
             if st.session_state.game_state["commencement_done"]:
+                # 如果還沒結算過戰略，就結算一次
+                if not st.session_state.game_state.get("ch1_strategy_done"):
+                    st.session_state.game_state["ch1_strategy_done"] = True
+                    # 結算花費與風險
+                    st.session_state.game_state["budget_used"] += ENV_OPTIONS[env_choice]["cost"]
+                    st.session_state.game_state["budget_used"] += DIPLOMACY_STRATEGIES[dip_choice]["cost"]
+                    st.session_state.game_state["risk_level"] += DIPLOMACY_STRATEGIES[dip_choice]["anger"]
+                    if st.session_state.game_state.get("resource_accurate"):
+                        st.toast("🎯 資源預估神準！獎勵預算！")
+                        st.session_state.game_state["budget_used"] -= 50000
                 st.success("🎉 開工申報完成！")
 
 # ==========================================
@@ -320,8 +369,7 @@ def render_paperless_minigame():
         processed = st.session_state.game_state["paperless_processed_files"]
         to_upload = st.multiselect("勾選上傳", processed, default=processed)
         
-        if st.button("🚀 送出電子簽章", type="primary", use_container_width=True):
-            # 必須有開工申報書 (NW0100)
+        if st.button("🚀 確認送出", type="primary", use_container_width=True):
             if any("NW0100" in f for f in to_upload):
                 st.session_state.game_state["commencement_done"] = True
                 st.session_state.game_state["doing_paperless"] = False
@@ -337,7 +385,7 @@ def render_paperless_minigame():
         st.dataframe(data, hide_index=True)
 
 # ==========================================
-# Chapter 2: 施工計畫 (戰略升級版)
+# Chapter 2: 施工計畫 (戰略版)
 # ==========================================
 def render_chapter_2():
     st.header("📜 第二章：施工計畫 (戰略部署)")
@@ -345,48 +393,35 @@ def render_chapter_2():
         st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
-    # 1. 工法流派選擇
-    st.subheader("1. 決定施工戰略 (工法流派)")
+    # 1. 工法選擇
+    st.subheader("1. 決定施工戰略")
+    curr_method = st.session_state.game_state["strategy"].get("method", "BOTTOM_UP")
+    m_opts = list(CONSTRUCTION_METHODS.keys())
+    m_lbls = [f"{k}: {v['name']}" for k, v in CONSTRUCTION_METHODS.items()]
+    sel_lbl = st.radio("選擇工法", m_lbls, index=m_opts.index(curr_method))
+    sel_key = m_opts[m_lbls.index(sel_lbl)]
+    m_data = CONSTRUCTION_METHODS[sel_key]
+    st.info(f"💡 {m_data['desc']} | 成本 {m_data['cost_mod']:,} | 風險 +{m_data['risk_mod']}%")
     
-    # 讀取目前工法，若無則預設
-    current_method_key = st.session_state.game_state["strategy"].get("method", "BOTTOM_UP")
-    
-    # 製作 radio 選項文字
-    method_options = list(CONSTRUCTION_METHODS.keys())
-    method_labels = [f"{k}: {v['name']}" for k, v in CONSTRUCTION_METHODS.items()]
-    
-    # UI
-    selected_method_label = st.radio(
-        "選擇開挖工法", 
-        method_labels, 
-        index=method_options.index(current_method_key)
-    )
-    
-    # 解析選擇
-    selected_key = method_options[method_labels.index(selected_method_label)]
-    method_data = CONSTRUCTION_METHODS[selected_key]
-    
-    st.info(f"💡 {method_data['desc']}\n\n📊 預估影響：成本 {method_data['cost_mod']:,} / 工期 {method_data['time_mod']} 週 / 風險 +{method_data['risk_mod']}%")
-    
-    # 2. 黃金陣容組建
     st.markdown("---")
-    st.subheader("2. 組建黃金陣容 (人員配置)")
-    
+
+    # 2. 人員配置
+    st.subheader("2. 組建黃金陣容")
     c_p1, c_p2, c_p3 = st.columns(3)
     
     with c_p1:
         st.markdown("👷 **工地主任**")
-        # 檢查是否有證書
+        # 檢查證書
         has_cert = any("NW3500" in f for f in st.session_state.game_state["paperless_processed_files"])
-        director_opts = {m["name"]: m for m in TEAM_MEMBERS["DIRECTOR"]}
-        sel_dir_name = st.selectbox("指派人選", list(director_opts.keys()))
-        sel_dir = director_opts[sel_dir_name]
+        dir_opts = {m["name"]: m for m in TEAM_MEMBERS["DIRECTOR"]}
+        sel_dir_name = st.selectbox("指派人選", list(dir_opts.keys()))
+        sel_dir = dir_opts[sel_dir_name]
         
         if sel_dir["id"] == "DIR_SENIOR" and not has_cert:
-            st.error("❌ 資格不符：缺少 NW3500 證書 (請回 Ch1 無紙化製作)")
+            st.error("❌ 資格不符：缺少 NW3500 (請回 Ch1 製作)")
             dir_valid = False
         else:
-            st.caption(f"薪資: {sel_dir['salary']} | 特技: {sel_dir['skill']}")
+            st.caption(f"薪資: {sel_dir['salary']}")
             dir_valid = True
 
     with c_p2:
@@ -394,35 +429,28 @@ def render_chapter_2():
         pe_opts = {m["name"]: m for m in TEAM_MEMBERS["PE"]}
         sel_pe_name = st.selectbox("指派技師", list(pe_opts.keys()))
         sel_pe = pe_opts[sel_pe_name]
-        st.caption(f"薪資: {sel_pe['salary']}")
 
     with c_p3:
         st.markdown("⛑️ **勞安人員**")
         saf_opts = {m["name"]: m for m in TEAM_MEMBERS["SAFETY"]}
         sel_saf_name = st.selectbox("指派勞安", list(saf_opts.keys()))
         sel_saf = saf_opts[sel_saf_name]
-        if sel_saf["id"] == "SAF_NONE":
-            st.warning("⚠️ 高風險！")
+        if sel_saf["id"] == "SAF_NONE": st.warning("⚠️ 高風險！")
 
-    # 3. 工地配置拼圖 (簡易版)
     st.markdown("---")
-    st.subheader("3. 工地平面配置 (Site Layout)")
-    st.caption("請將設施配置在正確位置 (3x3 網格)")
-    
-    # 模擬 3x3 網格的選擇
+
+    # 3. 場地拼圖
+    st.subheader("3. 工地配置")
     l1, l2, l3 = st.columns(3)
-    with l1:
-        gate_pos = st.selectbox("大門位置", ["臨路側(正確)", "轉角處(違規)", "後巷(無法進出)"])
-    with l2:
-        office_pos = st.selectbox("工務所位置", ["空地(正確)", "開挖區上方(危險)", "大門口(阻礙交通)"])
-    with l3:
-        crane_pos = st.selectbox("塔吊位置", ["基地中心(正確)", "鄰房邊緣(遭投訴)", "馬路上(違法)"])
+    gate = l1.selectbox("大門", ["臨路側(正確)", "轉角(違規)"])
+    office = l2.selectbox("工務所", ["空地(正確)", "開挖區(危險)"])
+    crane = l3.selectbox("塔吊", ["基地中心(正確)", "路邊(違法)"])
+    layout_valid = (gate == "臨路側(正確)") and (office == "空地(正確)") and (crane == "基地中心(正確)")
 
-    layout_valid = (gate_pos == "臨路側(正確)") and (office_pos == "空地(正確)") and (crane_pos == "基地中心(正確)")
-
-    # 4. 收集寶石 (原功能)
     st.markdown("---")
-    st.subheader("4. 文件彙整 (寶石收集)")
+
+    # 4. 寶石收集
+    st.subheader("4. 文件彙整 (六大寶石)")
     collected = st.session_state.game_state["collected_gems"]
     cols = st.columns(3)
     for i, (k, d) in enumerate(GEMS.items()):
@@ -434,42 +462,35 @@ def render_chapter_2():
                     st.session_state.game_state["collected_gems"].append(k)
                     st.rerun()
     
-    # 5. 送出計畫 (合成)
     st.markdown("---")
     if st.button("✨ 送出施工計畫書 (合成)", type="primary", use_container_width=True):
-        # 檢查邏輯
         if len(collected) < 6:
-            st.error("退件：文件(寶石)尚未收集齊全！")
+            st.error("文件未齊！")
         elif not dir_valid:
-            st.error("退件：工地主任資格不符！")
+            st.error("主任資格不符！")
         elif not layout_valid:
-            st.error("退件：工地平面配置違反規定！(請檢查大門、工務所或塔吊位置)")
+            st.error("配置違規！")
         else:
-            # 成功！寫入數據
             st.session_state.game_state["plan_approved"] = True
-            st.session_state.game_state["strategy"] = {
-                "method": selected_key,
-                "team": {"dir": sel_dir, "pe": sel_pe, "saf": sel_saf},
-                "layout": "ok"
-            }
-            # 應用戰略影響
-            st.session_state.game_state["budget_used"] += method_data['cost_mod'] + sel_dir['salary'] + sel_pe['salary'] + sel_saf['salary']
-            st.session_state.game_state["total_weeks"] += method_data['time_mod']
-            st.session_state.game_state["risk_level"] += method_data['risk_mod']
-            
+            # 寫入戰略
+            st.session_state.game_state["strategy"] = {"method": sel_key, "team": {"dir": sel_dir, "pe": sel_pe, "saf": sel_saf}}
+            # 結算
+            cost = m_data['cost_mod'] + sel_dir['salary'] + sel_pe['salary'] + sel_saf['salary']
+            st.session_state.game_state["budget_used"] += cost
+            st.session_state.game_state["total_weeks"] += m_data['time_mod']
+            st.session_state.game_state["risk_level"] += m_data['risk_mod']
             if sel_dir["id"] == "DIR_JUNIOR": st.session_state.game_state["risk_level"] += 10
             if sel_saf["id"] == "SAF_NONE": st.session_state.game_state["risk_level"] += 50
             
             st.balloons()
-            st.success("✅ 施工計畫核定！取得「開工許可」。")
-            add_log(f"計畫核定：{method_data['name']}, 主任:{sel_dir['name']}")
+            st.success("✅ 計畫核定！戰略生效。")
             st.rerun()
 
     if st.session_state.game_state["plan_approved"]:
         st.success("✅ 施工計畫已核定")
 
 # ==========================================
-# Chapter 3~7 (保持原樣)
+# Ch3~7 (保持原樣)
 # ==========================================
 def render_chapter_3():
     st.header("🚜 第三章：拆除整備")
@@ -504,10 +525,9 @@ def render_chapter_3():
     with c2:
         st.subheader("現場作業")
         if st.button("執行拆除作業"):
-            # 檢查是否有勞安 (如果沒請勞安，這裡風險極高)
             strat = st.session_state.game_state.get("strategy", {})
+            # 如果沒有勞安，風險極大
             no_saf = strat.get("team", {}).get("saf", {}).get("id") == "SAF_NONE"
-            
             actual_risk = risk + (50 if no_saf else 0)
             
             if actual_risk > 0 and random.random() < (actual_risk / 100):
