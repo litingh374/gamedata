@@ -1,24 +1,40 @@
 import streamlit as st
 import time
-# 記得要確認您的資料夾中有 gamedata.py 這個檔案，且裡面有 NW_CODES
 from gamedata import NW_CODES 
 
-# --- 1. 遊戲初始化 ---
+# --- 1. 遊戲初始化 (Session State) ---
+# 這裡設定遊戲開始時的預設狀態
 if 'project_status' not in st.session_state:
     st.session_state.project_status = {
         "step": "Project_Setup", # 當前階段：Setup -> Paperless -> Inspection
-        "inventory": [],         # 玩家擁有的文件
-        "uploaded_files": {},    # 已上傳到建管處的文件
-        "params": {}             # 基地參數 (面積、造價等)
+        "params": {}             # 基地參數
     }
+
+# 初始化虛擬檔案系統 (只執行一次)
+if "raw_files" not in st.session_state:
+    # 這是玩家電腦裡原本有的「亂七八糟原始檔」
+    st.session_state.raw_files = [
+        "施工計畫書_核定版.docx", 
+        "開工申報書_用印掃描.jpg",
+        "配筋圖_A3.dwg",
+        "圍籬綠美化設計圖.png",
+        "工地主任證書_含勞保.pdf",
+        "營造業登記證.jpg",
+        "這是不相關的自拍照.jpg"
+    ]
+
+if "processed_files" not in st.session_state:
+    # 這是轉檔好，準備上傳的 PDF
+    st.session_state.processed_files = []
 
 # --- 2. 介面路由 (Router) ---
 def main():
     st.set_page_config(page_title="跑照大作戰", layout="wide", page_icon="🏗️")
     
+    # 讀取目前進度
     status = st.session_state.project_status["step"]
     
-    # 根據狀態顯示不同頁面
+    # 根據進度顯示對應的頁面
     if status == "Project_Setup":
         render_setup_page()
     elif status == "Paperless_System":
@@ -50,81 +66,109 @@ def render_setup_page():
                 "road_width": road_width
             }
             
-            # 觸發邏輯判定 (例如：是否需逕流廢水)
+            # 觸發邏輯判定
             if area * duration >= 4600:
                 st.toast("⚠️ 警告：觸發高難度副本【逕流廢水削減計畫】！", icon="🚨")
                 time.sleep(1)
             
             st.success("專案建立成功！進入無紙化系統...")
             time.sleep(1)
+            
+            # 切換狀態到下一關
             st.session_state.project_status["step"] = "Paperless_System"
             st.rerun()
 
 def render_paperless_page():
     st.title("💻 台北市無紙化上傳系統")
     
-    # 模擬左側：文件暫存區 (背包)
-    with st.sidebar:
-        st.header("📂 你的文件包")
-        st.info("這裡是你目前擁有的文件，請根據右側需求上傳。")
-        
-        # 這裡模擬玩家透過其他互動獲得文件
-        if st.button("製作：施工計畫書 (NW3300)"):
-            if "NW3300" not in st.session_state.project_status["inventory"]:
-                st.session_state.project_status["inventory"].append("NW3300")
-                st.toast("獲得道具：施工計畫書！")
-            else:
-                st.warning("你已經有這份文件了。")
+    # 版面配置：左邊工作台，右邊作弊表
+    col_workspace, col_cheat_sheet = st.columns([2, 1])
 
-        st.write("目前擁有：", st.session_state.project_status["inventory"])
-
-    # 模擬中間：上傳區
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("建管處傳送門")
-        st.info("請將檔案拖曳至下方，並確認檔名包含正確編碼 (如 NW3300)。")
+    with col_workspace:
+        st.subheader("🛠️ 工程師的桌面")
         
-        uploaded = st.file_uploader("選擇檔案上傳", accept_multiple_files=True)
-        
-        if uploaded and st.button("送出電子簽章"):
-            errors = []
-            success_count = 0
+        # --- 區域 A: 檔案轉換區 (The Converter) ---
+        with st.container(border=True):
+            st.write("#### 1️⃣ 文件編碼與轉檔機")
+            st.info("請將「原始文件」配對正確的「NW 編碼」進行轉檔。")
             
-            for file in uploaded:
-                # 模擬檢查檔名是否包含正確編碼
-                valid = False
-                for code in NW_CODES:
-                    if code in file.name:
-                        valid = True
-                        success_count += 1
-                        break
-                if not valid:
-                    errors.append(f"❌ 退件：{file.name} 檔名編碼錯誤或是未知文件！")
-            
-            if errors:
-                for e in errors: st.error(e)
-            else:
-                if success_count > 0:
-                    st.balloons()
-                    st.success(f"✅ 掛號成功！共上傳 {success_count} 份文件。進入下一階段...")
-                    time.sleep(2)
-                    st.session_state.project_status["step"] = "Site_Inspection"
-                    st.rerun()
+            c1, c2, c3 = st.columns([2, 2, 1])
+            with c1:
+                # 選擇原始檔
+                if st.session_state.raw_files:
+                    selected_raw = st.selectbox("選擇原始文件", st.session_state.raw_files)
                 else:
-                    st.warning("請先選擇檔案！")
+                    st.success("所有文件處理完畢！")
+                    selected_raw = None
+            
+            with c2:
+                # 選擇 NW 編碼
+                nw_options = ["請選擇編碼..."] + list(NW_CODES.keys())
+                selected_code = st.selectbox("賦予 NW 編碼", nw_options)
+            
+            with c3:
+                st.write(" ") # 排版佔位
+                st.write(" ") 
+                # 按鈕邏輯
+                if st.button("轉檔 ➡️", type="primary", disabled=(not selected_raw or selected_code == "請選擇編碼...")):
+                    # 1. 從原始清單移除
+                    st.session_state.raw_files.remove(selected_raw)
+                    # 2. 產生新檔名 (模擬清理檔名)
+                    clean_name = selected_raw.split('.')[0].replace("_核定版", "").replace("_用印掃描", "").replace("_A3", "")
+                    new_filename = f"{selected_code}_{clean_name}.pdf"
+                    
+                    # 3. 加入已處理清單
+                    st.session_state.processed_files.append(new_filename)
+                    st.toast(f"✅ 成功轉檔為：{new_filename}")
+                    st.rerun()
 
-    # 右側：編碼表與狀態
-    with col2:
+        # --- 區域 B: 傳送門 (The Portal) ---
+        with st.container(border=True):
+            st.write("#### 2️⃣ 建管處傳送門 (已轉檔文件)")
+            
+            if not st.session_state.processed_files:
+                st.markdown("*目前沒有準備好的 PDF，請先在上方進行轉檔...*")
+            else:
+                # 多選清單
+                files_to_send = st.multiselect(
+                    "勾選要正式掛號的文件", 
+                    st.session_state.processed_files,
+                    default=st.session_state.processed_files
+                )
+                
+                if st.button("🚀 送出電子簽章 (上傳)", type="primary"):
+                    # 簡單的檢查邏輯
+                    uploaded_codes = [f.split('_')[0] for f in files_to_send]
+                    
+                    # 檢查必備文件 (這裡假設 NW0100 和 NW3300 是必須的)
+                    required = ["NW0100", "NW3300"]
+                    missing = [code for code in required if code not in uploaded_codes]
+                    
+                    if missing:
+                        st.error(f"❌ 退件：缺少必要文件！請檢查以下項目：{', '.join(missing)}")
+                    else:
+                        st.balloons()
+                        st.success("✅ 掛號成功！案件已受理。")
+                        time.sleep(2)
+                        st.session_state.project_status["step"] = "Site_Inspection"
+                        st.rerun()
+
+    # 右側：Cheat Sheet
+    with col_cheat_sheet:
         st.warning("HiCOS 憑證狀態")
         st.markdown("🟢 **已連線：工商憑證**")
         
-        with st.expander("📖 查看 NW 編碼表 (Cheat Sheet)", expanded=True):
-            # 將 gamedata 的資料轉為表格顯示，比較好看
+        with st.expander("📖 NW 編碼對照表 (Cheat Sheet)", expanded=True):
             df = []
             for code, data in NW_CODES.items():
                 df.append({"代碼": code, "名稱": data["name"]})
             st.dataframe(df, hide_index=True)
+            
+        st.markdown("---")
+        st.markdown("#### 💡 提示")
+        st.caption("1. 左上角：把「亂七八糟的檔案」配對「編碼」。")
+        st.caption("2. 記得 `NW3300` 是施工計畫書。")
+        st.caption("3. 轉檔完後，在下方勾選並送出。")
 
 def render_site_page():
     st.title("🏗️ 現場放樣勘驗")
@@ -152,6 +196,7 @@ def render_site_page():
                 
         if st.button("📸 拍攝勘驗合照"):
             st.success("拍攝完成！進入結構體階段 (待續...)")
+            st.balloons()
 
 if __name__ == "__main__":
     main()
