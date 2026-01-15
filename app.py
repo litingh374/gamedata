@@ -6,7 +6,7 @@ from gamedata import NW_CODES
 # 這裡設定遊戲開始時的預設狀態
 if 'project_status' not in st.session_state:
     st.session_state.project_status = {
-        "step": "Project_Setup", # 當前階段：Setup -> Paperless -> Inspection
+        "step": "Project_Setup", # 當前階段：Project_Setup -> Paperless_System -> Site_Inspection
         "params": {}             # 基地參數
     }
 
@@ -176,7 +176,8 @@ def render_site_page():
     
     col1, col2 = st.columns(2)
     with col1:
-        st.image("https://placeholder.co/400x300?text=Construction+Site", caption="工地現場模擬圖")
+        # 讀取本地圖片 (請確保檔名為 site_simulation.png 且在同一資料夾)
+        st.image("site_simulation.png", caption="工地現場模擬圖", use_container_width=True)
         
         st.subheader("現場設施檢查")
         if st.button("加裝防溢座 (高60cm)"):
