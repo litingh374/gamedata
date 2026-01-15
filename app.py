@@ -28,7 +28,14 @@ def main():
     st.set_page_config(page_title="跑照大作戰：完整版", layout="wide", page_icon="🏗️")
     
     # 路由控制器 (Router)
-    stage = st.session_state.game_state["current_stage"]
+    # 加上 try-except 防止因版本更新導致的 key error
+    try:
+        stage = st.session_state.game_state["current_stage"]
+    except KeyError:
+        # 如果發生錯誤，重置狀態
+        st.warning("偵測到舊的存檔結構，正在重置遊戲...")
+        st.session_state.clear()
+        st.rerun()
     
     if stage == "Level_1_Dashboard":
         render_level_1_dashboard()
@@ -177,9 +184,24 @@ def render_level_2_minigame():
                 else:
                     st.error("❌ 退件：缺少 NW3300 施工計畫書！")
 
+    # --- 右側：Cheat Sheet (改成直式表格) ---
     with col_cheat:
         st.markdown("🟢 **HiCOS 已連線**")
-        st.dataframe(NW_CODES)
+        
+        # 將 NW_CODES 字典轉換為列表，讓 Streamlit 能夠以「列」的方式顯示
+        cheat_sheet_data = []
+        for code, info in NW_CODES.items():
+            row = {
+                "代碼": code,
+                "名稱": info["name"],
+                "類型": info["type"]
+            }
+            # 為了讓表格更簡潔，可以只顯示重點欄位
+            cheat_sheet_data.append(row)
+        
+        st.write("▼ NW 編碼對照表")
+        # use_container_width=True 讓表格填滿欄位寬度
+        st.dataframe(cheat_sheet_data, hide_index=True, use_container_width=True)
 
 # ==========================================
 # Level 3: 工地放樣現場 (The Construction Site)
@@ -191,6 +213,7 @@ def render_level_3_site():
     col1, col2 = st.columns(2)
     with col1:
         # 嘗試讀取本地圖片，若無則顯示替代圖
+        # 記得確認您的 GitHub 上有 site_simulation.png
         img_path = "site_simulation.png"
         if os.path.exists(img_path):
             st.image(img_path, caption="工地模擬圖", use_container_width=True)
