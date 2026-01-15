@@ -3,7 +3,7 @@ import time
 import random
 
 # ==========================================
-# 1. 遊戲資料庫 (內建於主程式，免除檔案依賴問題)
+# 1. 遊戲資料庫 (Data)
 # ==========================================
 
 REGIONS = ["台北市 (Taipei)", "新北市 (New Taipei)"]
@@ -40,7 +40,6 @@ DEMO_SEALS = {
     "D07": {"name": "行政驗收(圖說抽查)", "code": "Check_Arch"},
 }
 
-# Ch2: 施工戰略資料
 CONSTRUCTION_METHODS = {
     "BOTTOM_UP": {
         "name": "順打工法 (Bottom-Up)",
@@ -154,7 +153,6 @@ if 'game_state' not in st.session_state:
             "配筋圖_A3.dwg", "工地主任自拍照.jpg"
         ],
         "paperless_processed_files": [],
-        # 新增變數以防萬一
         "g02_checked": False,
     }
 
@@ -295,14 +293,19 @@ def advance_week():
         st.session_state.game_state["active_event"] = random.choice(RANDOM_EVENTS)
     st.rerun()
 
-# --- Ch1: 開工申報 ---
+# ==========================================
+# Ch1: 開工申報
+# ==========================================
 def render_chapter_1():
     st.header("📂 第一章：開工申報 (戰略部署)")
     p_data = st.session_state.game_state["project_data"]
     
-    # [修正] 初始化所有關鍵變數，防止 UnboundLocalError
-    seals_ok = False
+    # 變數防呆初始化 (關鍵修正!)
+    env_choice = "LOW"
+    dip_choice = "HAWK"
+    g02 = False
     green_ok = False
+    seals_ok = False
     
     # 1. 資源與外交
     with st.expander("📊 戰略與資源配置", expanded=True):
@@ -372,9 +375,6 @@ def render_chapter_1():
         st.subheader("🌳 環保任務")
         with st.container(border=True):
             st.checkbox("G01 空污費", value=True, disabled=True)
-            
-            # [修正] 初始化 g02
-            g02 = False
             
             if p_data["area_unknown"] or p_data["duration_unknown"]:
                 st.info("🔒 G02: 資料不明...")
@@ -471,21 +471,26 @@ def render_chapter_2():
         st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
-    # [修正] 初始化變數，防止 UnboundLocalError
+    # 變數防呆初始化 (關鍵修正!)
+    sel_key = "BOTTOM_UP"
     dir_valid = False
     layout_valid = False
-    sel_key = "BOTTOM_UP" # 預設值
-    m_data = CONSTRUCTION_METHODS[sel_key]
     sel_dir = TEAM_MEMBERS["DIRECTOR"][0]
     sel_pe = TEAM_MEMBERS["PE"][0]
     sel_saf = TEAM_MEMBERS["SAFETY"][0]
+    m_data = CONSTRUCTION_METHODS[sel_key]
 
     # 1. 工法選擇
     st.subheader("1. 決定施工戰略")
     curr_method = st.session_state.game_state["strategy"].get("method", "BOTTOM_UP")
     m_opts = list(CONSTRUCTION_METHODS.keys())
     m_lbls = [f"{k}: {v['name']}" for k, v in CONSTRUCTION_METHODS.items()]
-    sel_lbl = st.radio("選擇工法", m_lbls, index=m_opts.index(curr_method))
+    # 這裡加入 try-except 防止 index error
+    try:
+        idx = m_opts.index(curr_method)
+    except ValueError:
+        idx = 0
+    sel_lbl = st.radio("選擇工法", m_lbls, index=idx)
     sel_key = m_opts[m_lbls.index(sel_lbl)]
     m_data = CONSTRUCTION_METHODS[sel_key]
     st.info(f"💡 {m_data['desc']} | 成本 {m_data['cost_mod']:,} | 風險 +{m_data['risk_mod']}%")
@@ -500,6 +505,7 @@ def render_chapter_2():
         dir_opts = {m["name"]: m for m in TEAM_MEMBERS["DIRECTOR"]}
         sel_dir_name = st.selectbox("指派人選", list(dir_opts.keys()))
         sel_dir = dir_opts[sel_dir_name]
+        
         if sel_dir["id"] == "DIR_SENIOR" and not has_cert:
             st.error("❌ 資格不符：缺少 NW3500 (請回 Ch1 製作)")
             dir_valid = False
