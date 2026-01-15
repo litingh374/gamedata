@@ -34,9 +34,14 @@ SETTING_OUT_STEPS = [
     {"id": "S5", "name": "簽核准用", "desc": "核准函", "hp": 15},
 ]
 
-# === 無紙化小遊戲資料 ===
+# === 無紙化小遊戲資料 (完整版回歸) ===
 NW_CODES = {
     "NW0100": {"name": "建築工程開工申報書", "type": "doc"},
+    "NW0200": {"name": "起造人名冊", "type": "doc"},
     "NW3300": {"name": "施工計畫書", "type": "doc"},
     "NW5000": {"name": "配筋圖", "type": "drawing"},
+    "NW5100": {"name": "圍籬綠美化圖說", "type": "drawing"},
+    "NW1100": {"name": "逕流廢水削減計畫核備函", "type": "doc"},
+    "NW1500": {"name": "營造業承攬手冊", "type": "doc"},
+    "NW3500": {"name": "工地主任證書", "type": "doc"},
 }
