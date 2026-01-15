@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 import random
+# 確保 gamedata.py 是最新版
 from gamedata import REGIONS, PROJECT_TYPES, THRESHOLDS, DEMO_SEALS, GREEN_QUEST, GEMS, SETTING_OUT_STEPS, NW_CODES, RANDOM_EVENTS, CONSTRUCTION_METHODS, TEAM_MEMBERS, RESOURCE_RATES, ENV_OPTIONS, DIPLOMACY_STRATEGIES
 
 # ==========================================
@@ -26,13 +27,13 @@ if 'game_state' not in st.session_state:
             "floor_area": 0, "floor_area_unknown": False,
         },
 
-        # --- Ch1: 開工申報 (修正重點：新增任務狀態字典) ---
+        # --- Ch1: 開工申報 ---
         "hicos_connected": False,
         "demo_seals_cleared": [],
         "doing_paperless": False,
         "commencement_done": False,
-        "ch1_strategy_done": False,
-        "ch1_tasks": {"G02": False, "G03": False}, # [修正] 強制記錄任務狀態
+        "ch1_strategy_done": False, # 判斷 Ch1 戰略是否完成
+        "ch1_tasks": {},            # 記錄任務狀態
         "resource_accurate": False,
         
         # --- Ch2: 施工計畫 ---
@@ -72,8 +73,9 @@ if 'game_state' not in st.session_state:
     }
 
 def main():
-    st.set_page_config(page_title="跑照大作戰：完全體", layout="wide", page_icon="🏗️")
+    st.set_page_config(page_title="跑照大作戰：完全修復版", layout="wide", page_icon="🏗️")
     
+    # 隨機事件彈窗 (優先級最高)
     if st.session_state.game_state["active_event"]:
         render_event_dialog()
         return
@@ -84,12 +86,13 @@ def main():
         render_main_game()
 
 # ==========================================
-# 隨機事件與 Launcher (保持不變)
+# 隨機事件處理
 # ==========================================
 def render_event_dialog():
     evt = st.session_state.game_state["active_event"]
     st.error(f"🚨 突發狀況：{evt['title']}")
     st.markdown(f"**{evt['desc']}**")
+    
     c1, c2 = st.columns(2)
     if c1.button(f"🅰️ {evt['options'][0]['text']}", use_container_width=True): resolve_event(evt['options'][0])
     if c2.button(f"🅱️ {evt['options'][1]['text']}", use_container_width=True): resolve_event(evt['options'][1])
@@ -108,12 +111,17 @@ def resolve_event(opt):
     elif eff == "disaster":
         st.error("災難發生！Game Over")
         st.session_state.game_state["risk_level"] = 100
+    
     st.session_state.game_state["active_event"] = None
     add_log(f"事件：{msg}")
     st.rerun()
 
+# ==========================================
+# 遊戲大廳
+# ==========================================
 def render_launcher():
     st.title("🏗️ 專案啟動：工程情報輸入")
+    
     c1, c2 = st.columns(2)
     if c1.button("🟢 新手村 (小型透天)", use_container_width=True): set_preset("small")
     if c2.button("🔴 挑戰模式 (大型建案)", use_container_width=True): set_preset("large")
@@ -128,9 +136,11 @@ def render_launcher():
         cc1, cc2 = st.columns([3, 1])
         area_unk = cc2.checkbox("不清楚面積")
         area = cc1.number_input("基地面積", value=100, disabled=area_unk)
+        
         cc3, cc4 = st.columns([3, 1])
         dur_unk = cc4.checkbox("不清楚工期")
         dur = cc3.number_input("預計工期", value=6, disabled=dur_unk)
+        
         cc5, cc6 = st.columns([3, 1])
         floor_unk = cc6.checkbox("不清楚樓地板")
         floor_area = cc5.number_input("總樓地板面積", value=300, disabled=floor_unk)
@@ -150,6 +160,7 @@ def render_launcher():
             st.session_state.game_state["demo_phase_passed"] = True
             st.session_state.game_state["b5_closed"] = True
             st.session_state.game_state["is_demo_shield_active"] = True
+        
         st.session_state.game_state["stage"] = "MainGame"
         st.rerun()
 
@@ -163,6 +174,7 @@ def set_preset(mode):
     else:
         cfg = {"region": "台北市", "type": "拆併建照", "is_mrt": True}
         p_data = {"area": 3000, "duration": 24, "cost": 200000000, "floor_area": 15000, "area_unknown":False, "duration_unknown":False, "cost_unknown":False, "floor_area_unknown":False}
+    
     st.session_state.game_state["config"] = cfg
     st.session_state.game_state["project_data"] = p_data
     st.session_state.game_state["stage"] = "MainGame"
@@ -195,7 +207,7 @@ def render_main_game():
 
     st.title(f"🏗️ {cfg['type']}")
     
-    tabs = st.tabs(["Ch1 開工", "Ch2 計畫", "Ch3 拆除", "Ch4 導溝", "Ch5 放樣", "Ch6 地下城", "Ch7 巴別塔"])
+    tabs = st.tabs(["Ch1 開工", "Ch2 計畫(戰略)", "Ch3 拆除", "Ch4 導溝", "Ch5 放樣", "Ch6 地下城", "Ch7 巴別塔"])
     
     with tabs[0]: render_chapter_1()
     with tabs[1]: render_chapter_2()
@@ -212,13 +224,13 @@ def advance_week():
     st.rerun()
 
 # ==========================================
-# Ch1: 開工申報 (修正：狀態保存邏輯)
+# Ch1: 開工申報 (修正：初始化 g02)
 # ==========================================
 def render_chapter_1():
     st.header("📂 第一章：開工申報 (戰略部署)")
     p_data = st.session_state.game_state["project_data"]
     
-    # 1. 資源與外交 (戰略)
+    # 1. 資源預估與外交
     with st.expander("📊 戰略與資源配置", expanded=True):
         if p_data["floor_area_unknown"]:
             st.warning("🔒 樓地板面積不明，無法進行資源精算。")
@@ -231,7 +243,6 @@ def render_chapter_1():
                 ref_conc = p_data["floor_area"] * RESOURCE_RATES["CONCRETE"]
                 est_conc = st.slider("預估混凝土 (m³)", int(ref_conc*0.5), int(ref_conc*2.0), int(ref_conc*1.2))
             
-            # 簡單判定準確度
             steel_acc = abs(est_steel - ref_steel) / ref_steel
             conc_acc = abs(est_conc - ref_conc) / ref_conc
             st.session_state.game_state["resource_accurate"] = steel_acc < 0.1 and conc_acc < 0.1
@@ -283,14 +294,13 @@ def render_chapter_1():
         else:
             seals_ok = True
 
-        # B. 環保任務 (修正重點：使用 persistent state)
+        # B. 環保任務 (*** 修正重點 ***)
         st.subheader("🌳 環保任務")
         with st.container(border=True):
             st.checkbox("G01 空污費", value=True, disabled=True)
             
-            # --- 修正邏輯開始 ---
-            # 讀取目前 G02 狀態
-            current_g02_status = st.session_state.game_state["ch1_tasks"].get("G02", False)
+            # [Fix] 必須在這裡先初始化 g02，防止後面報錯
+            g02 = False 
             
             if p_data["area_unknown"] or p_data["duration_unknown"]:
                 st.info("🔒 G02: 資料不明...")
@@ -302,19 +312,15 @@ def render_chapter_1():
             else:
                 f = p_data["area"] * p_data["duration"]
                 if f >= THRESHOLDS["POLLUTION_FACTOR"]:
-                    # 使用 value=current_status 來保持狀態
-                    is_checked = st.checkbox(f"G02 逕流廢水 (係數{f})", value=current_g02_status, key="chk_g02")
-                    if is_checked:
-                        st.session_state.game_state["ch1_tasks"]["G02"] = True
-                    else:
-                        st.session_state.game_state["ch1_tasks"]["G02"] = False
+                    # 使用 session state 記錄勾選狀態，避免刷新後消失
+                    chk_val = st.session_state.game_state.get("g02_checked", False)
+                    g02 = st.checkbox(f"G02 逕流廢水 (係數{f})", value=chk_val, key="g02_box")
+                    st.session_state.game_state["g02_checked"] = g02
                 else:
                     st.write("~~G02 逕流廢水~~ (免辦)")
-                    st.session_state.game_state["ch1_tasks"]["G02"] = True # 免辦視同完成
+                    g02 = True
             
-            # 更新 green_ok 變數
-            green_ok = st.session_state.game_state["ch1_tasks"]["G02"]
-            # --- 修正邏輯結束 ---
+            green_ok = g02
 
     with col_system:
         st.subheader("💻 數位憑證")
@@ -324,15 +330,13 @@ def render_chapter_1():
                 st.session_state.game_state["hicos_connected"] = True
                 st.rerun()
         else:
-            st.success("🟢 HiCOS 連線")
-            
+            st.success("🟢 HiCOS 已連線")
             if seals_ok and green_ok:
-                st.info("條件符合，請進入系統。")
                 if st.button("進入虛擬桌面 (上傳)", type="primary"):
                     st.session_state.game_state["doing_paperless"] = True
                     st.rerun()
             else:
-                st.warning("🔒 任務未解鎖 (請完成左側任務)")
+                st.warning("🔒 任務未解鎖")
                 
             if st.session_state.game_state["commencement_done"]:
                 # 戰略結算
@@ -389,17 +393,15 @@ def render_paperless_minigame():
         st.dataframe(data, hide_index=True)
 
 # ==========================================
-# Chapter 2~7 (保持之前的功能)
+# Chapter 2: 施工計畫 (戰略部署版)
 # ==========================================
-# ... (請將上一版 Ch2~Ch7 的程式碼貼於此處) ...
-# 為了節省您的複製時間，我這裡直接把後面的程式碼也補上：
-
 def render_chapter_2():
     st.header("📜 第二章：施工計畫 (戰略部署)")
     if not st.session_state.game_state["commencement_done"]:
         st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
+    # 1. 工法選擇
     st.subheader("1. 決定施工戰略")
     curr_method = st.session_state.game_state["strategy"].get("method", "BOTTOM_UP")
     m_opts = list(CONSTRUCTION_METHODS.keys())
@@ -448,7 +450,7 @@ def render_chapter_2():
     layout_valid = (gate == "臨路側(正確)") and (office == "空地(正確)") and (crane == "基地中心(正確)")
 
     st.markdown("---")
-    st.subheader("4. 文件彙整")
+    st.subheader("4. 文件彙整 (寶石收集)")
     collected = st.session_state.game_state["collected_gems"]
     cols = st.columns(3)
     for i, (k, d) in enumerate(GEMS.items()):
@@ -477,101 +479,226 @@ def render_chapter_2():
             st.session_state.game_state["risk_level"] += m_data['risk_mod']
             if sel_dir["id"] == "DIR_JUNIOR": st.session_state.game_state["risk_level"] += 10
             if sel_saf["id"] == "SAF_NONE": st.session_state.game_state["risk_level"] += 50
+            
             st.balloons()
-            st.success("✅ 計畫核定！")
+            st.success("✅ 計畫核定！戰略生效。")
             st.rerun()
 
-    if st.session_state.game_state["plan_approved"]: st.success("✅ 施工計畫已核定")
+    if st.session_state.game_state["plan_approved"]:
+        st.success("✅ 施工計畫已核定")
 
+# ==========================================
+# Chapter 3~7 (保持原樣)
+# ==========================================
 def render_chapter_3():
     st.header("🚜 第三章：拆除整備")
-    if not st.session_state.game_state["plan_approved"]: st.warning("🔒 鎖定中：請先完成第二章。"); return
-    config_type = st.session_state.game_state["config"]["type"]
-    if "素地" in config_type: st.success("✅ 素地自動通過"); st.session_state.game_state["demo_phase_passed"] = True; return
+    if not st.session_state.game_state["plan_approved"]:
+        st.warning("🔒 鎖定中：請先完成第二章。")
+        return
 
+    config_type = st.session_state.game_state["config"]["type"]
+    if "素地" in config_type:
+        st.success("✅ 素地新建：本章節自動通過。")
+        st.session_state.game_state["demo_phase_passed"] = True
+        return
+
+    st.info("⚠️ 拆併建模式：請執行拆除。")
     has_shield = st.session_state.game_state["is_demo_shield_active"]
     risk = st.session_state.game_state["risk_level"]
+    
     c1, c2 = st.columns(2)
     with c1:
-        st.write(f"🛡️ 護盾：{'✅ 開啟' if has_shield else '❌ 無'}")
-        if st.button("B5 廢棄物結案"): st.session_state.game_state["b5_closed"] = True; st.success("B5 已結案")
+        st.subheader("辦公室作業")
+        st.write(f"🛡️ 護盾狀態：{'✅ 開啟' if has_shield else '❌ 無 (風險!)'}")
+        if st.button("B5 廢棄物結案"):
+            st.session_state.game_state["b5_closed"] = True
+            st.success("B5 已結案")
+            add_log("B5 結案完成。")
+        
+        if st.session_state.game_state["b5_closed"]:
+            st.info("✅ B5 狀態：已結案")
+        else:
+            st.warning("❌ B5 狀態：未結案 (影響放樣)")
+
     with c2:
+        st.subheader("現場作業")
         if st.button("執行拆除作業"):
             strat = st.session_state.game_state.get("strategy", {})
             no_saf = strat.get("team", {}).get("saf", {}).get("id") == "SAF_NONE"
             actual_risk = risk + (50 if no_saf else 0)
+            
             if actual_risk > 0 and random.random() < (actual_risk / 100):
-                st.error("💥 發生意外！"); st.session_state.game_state["risk_level"] += 20; add_log("鄰損發生！")
+                st.error("💥 發生嚴重鄰損/工安意外！")
+                st.session_state.game_state["risk_level"] += 20
+                add_log("鄰損發生！工程暫停。")
             else:
-                st.session_state.game_state["demo_progress"] = 100; st.success("拆除完成！"); add_log("拆除完成")
+                st.session_state.game_state["demo_progress"] = 100
+                st.success("拆除完成！(運氣不錯)")
+                add_log("拆除作業完成。")
 
-    if st.session_state.game_state["demo_progress"] >= 100: st.session_state.game_state["demo_phase_passed"] = True; st.success("🌟 拆除完成！")
+    if st.session_state.game_state["demo_progress"] >= 100:
+        st.session_state.game_state["demo_phase_passed"] = True
+        st.success("🌟 拆除階段完成！")
 
 def render_chapter_4():
     st.header("🧱 第四章：導溝勘驗")
-    if not st.session_state.game_state["plan_approved"]: st.warning("🔒 鎖定中"); return
-    if not st.session_state.game_state["demo_phase_passed"]: st.warning("🔒 鎖定中"); return
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("施工：挖溝&澆置"): st.session_state.game_state["guide_wall_progress"] += 50; st.rerun()
-        st.progress(st.session_state.game_state["guide_wall_progress"]/100)
-    with c2:
-        if st.session_state.game_state["guide_wall_progress"] >= 100:
-            if st.button("申報勘驗"):
-                config = st.session_state.game_state["config"]["type"]
-                b5 = st.session_state.game_state["b5_closed"]
-                if "拆併建" in config and not b5: st.error("🚫 退件：B5 未結案")
-                else: st.session_state.game_state["guide_wall_inspected"] = True; st.balloons(); st.success("🎉 勘驗合格")
+    if not st.session_state.game_state["plan_approved"]:
+        st.warning("🔒 鎖定中：請先完成第二章。")
+        return
+    if not st.session_state.game_state["demo_phase_passed"]:
+        st.warning("🔒 鎖定中：請先完成第三章。")
+        return
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("現場施作")
+        gw_prog = st.session_state.game_state["guide_wall_progress"]
+        st.progress(gw_prog / 100, text=f"進度: {gw_prog}%")
+        if gw_prog < 100:
+            if st.button("施工：挖溝&澆置"):
+                st.session_state.game_state["guide_wall_progress"] += 50
+                st.rerun()
+    with col2:
+        st.subheader("行政查驗")
+        if gw_prog >= 100:
+            if st.button("📞 申報導溝勘驗", type="primary"):
+                config_type = st.session_state.game_state["config"]["type"]
+                b5_ok = st.session_state.game_state["b5_closed"]
+                if "拆併建" in config_type and not b5_ok:
+                    st.error("🚫 退件！拆除廢棄物 (B5) 尚未結案。")
+                else:
+                    st.session_state.game_state["guide_wall_inspected"] = True
+                    st.balloons()
+                    st.success("🎉 勘驗合格！")
+                    add_log("導溝勘驗通過。")
+        else:
+            st.info("請先完成施作。")
 
 def render_chapter_5():
     st.header("🏯 終章：放樣勘驗")
-    if not st.session_state.game_state["guide_wall_inspected"]: st.warning("🔒 鎖定中"); return
+    if not st.session_state.game_state["guide_wall_inspected"]:
+        st.warning("🔒 鎖定中：請先完成第四章。")
+        return
     st.success("🌟 准予掛號！")
-    if st.button("⚔️ 發動攻擊"): st.session_state.game_state["boss_hp"] = 0; st.rerun()
-    if st.session_state.game_state["boss_hp"] == 0: st.balloons(); st.success("🏆 恭喜通關！")
+    hp = st.session_state.game_state["boss_hp"]
+    st.metric("BOSS HP", f"{hp}/100")
+    if st.button("⚔️ 發動攻擊 (審查)"):
+        st.session_state.game_state["boss_hp"] = max(0, hp - 20)
+        st.rerun()
+    if st.session_state.game_state["boss_hp"] == 0:
+        st.balloons()
+        st.success("🏆 恭喜通關！准予放樣！建築物正式長出來啦！")
 
 def render_chapter_6():
-    st.header("🚜 Ch6: 地下城危機")
-    if st.session_state.game_state["boss_hp"] > 0: st.warning("🔒 鎖定中"); return
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("架設支撐"): st.session_state.game_state["shoring_installed"] = True; st.success("安全支撐已架設")
-    with c2:
-        if st.button("挖土 (B5)"):
-            if not st.session_state.game_state["shoring_installed"]: st.error("💥 危險！未架設支撐！"); st.session_state.game_state["risk_level"] += 20
-            else: st.session_state.game_state["excavation_progress"] += 25; st.rerun()
-        if st.session_state.game_state["excavation_progress"] >= 100:
-            st.success("開挖完成"); 
-            if st.button("前往結構體"): st.session_state.game_state["foundation_done"] = True; st.rerun()
+    st.header("🚜 Ch6: 地下城危機 (基礎開挖)")
+    if st.session_state.game_state["boss_hp"] > 0:
+        st.warning("🔒 請先完成 Ch5 放樣勘驗。")
+        return
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("🛡️ 安全支撐")
+        if st.session_state.game_state["shoring_installed"]:
+            st.success("✅ 安全支撐已架設")
+        else:
+            st.warning("⚠️ 尚未架設支撐！")
+            if st.button("架設 H 型鋼支撐"):
+                st.session_state.game_state["shoring_installed"] = True
+                add_log("安全支撐架設完成。")
+                st.rerun()
+
+    with col2:
+        st.subheader("🏗️ 土方開挖")
+        prog = st.session_state.game_state["excavation_progress"]
+        st.progress(prog / 100, text=f"開挖進度: {prog}%")
+        
+        if prog < 100:
+            if st.button("挖土 & 運棄 (B5)"):
+                if not st.session_state.game_state["shoring_installed"]:
+                    st.error("💥 危險！未架設支撐就開挖！")
+                    st.session_state.game_state["risk_level"] += 20
+                    add_log("違規開挖，風險激增！")
+                else:
+                    st.session_state.game_state["excavation_progress"] += 25
+                    add_log("土方開挖進度 +25%")
+                    st.rerun()
+        else:
+            st.success("開挖完成！")
+            if st.button("前往結構體工程"):
+                st.session_state.game_state["foundation_done"] = True
+                st.rerun()
 
 def render_chapter_7():
-    st.header("🏢 Ch7: 巴別塔試煉")
-    if not st.session_state.game_state.get("foundation_done"): st.warning("🔒 鎖定中"); return
+    st.header("🏢 Ch7: 巴別塔試煉 (結構體)")
+    if not st.session_state.game_state.get("foundation_done"):
+        st.warning("🔒 請先完成 Ch6 基礎開挖。")
+        return
+
     floors = ["B1", "1F", "2F"]
-    curr = st.selectbox("樓層", floors, index=floors.index(st.session_state.game_state["current_floor"]))
-    st.session_state.game_state["current_floor"] = curr
-    status = st.session_state.game_state["floor_status"][curr]
+    curr_floor = st.selectbox("選擇施工樓層", floors, index=floors.index(st.session_state.game_state["current_floor"]))
+    st.session_state.game_state["current_floor"] = curr_floor
+    
+    status = st.session_state.game_state["floor_status"][curr_floor]
+    
+    st.subheader(f"目前樓層：{curr_floor}")
     c1, c2, c3, c4 = st.columns(4)
-    with c1: 
-        if st.button("綁鋼筋"): status["rebar"] = True; st.rerun()
-        if status["rebar"]: st.success("OK")
-    with c2: 
-        if st.button("封板模"): status["form"] = True; st.rerun()
-        if status["form"]: st.success("OK")
+    
+    with c1:
+        st.markdown("#### 1. 綁紮")
+        if status["rebar"]: st.success("已完成")
+        else:
+            if st.button("綁鋼筋"):
+                status["rebar"] = True
+                st.rerun()
+                
+    with c2:
+        st.markdown("#### 2. 封模")
+        if status["form"]: st.success("已完成")
+        else:
+            if not status["rebar"]: st.caption("先綁筋");
+            else:
+                if st.button("封板模"): status["form"] = True; st.rerun()
+
     with c3:
-        if st.button("申報勘驗"):
-            # 時間差檢查
-            prev_map = {"1F": "B1", "2F": "1F"}
-            can_rep = True
-            if curr in prev_map:
-                prev_test = st.session_state.game_state["floor_status"][prev_map[curr]]["test_week"]
-                now = st.session_state.game_state["current_week"]
-                if prev_test is None or (now - prev_test) < 4: st.warning("⏳ 試體養護中..."); can_rep = False
-            if can_rep: status["report"] = True; st.balloons(); st.rerun()
-        if status["report"]: st.success("OK")
+        st.markdown("#### 3. 勘驗")
+        if status["report"]: st.success("已核准")
+        else:
+            if not status["form"]: st.caption("先封模");
+            else:
+                if curr_floor == "2F": st.info("🔥 此層需公會抽查！")
+                
+                prev_floor_map = {"1F": "B1", "2F": "1F"}
+                can_report = True
+                
+                if curr_floor in prev_floor_map:
+                    prev_f = prev_floor_map[curr_floor]
+                    prev_test_week = st.session_state.game_state["floor_status"][prev_f]["test_week"]
+                    current_week = st.session_state.game_state["current_week"]
+                    
+                    if prev_test_week is None:
+                        st.error("上一層忘了做試體！")
+                        can_report = False
+                    elif (current_week - prev_test_week) < 4:
+                        wait = 4 - (current_week - prev_test_week)
+                        st.warning(f"⏳ 試體養護中...還需 {wait} 週")
+                        can_report = False
+                
+                if can_report:
+                    if st.button("申報勘驗"):
+                        status["report"] = True
+                        st.balloons()
+                        add_log(f"{curr_floor} 勘驗通過。"); st.rerun()
+
     with c4:
-        if st.button("灌漿"): status["pour"] = True; status["test_week"] = st.session_state.game_state["current_week"]; st.rerun()
-        if status["pour"]: st.success("OK")
+        st.markdown("#### 4. 澆置")
+        if status["pour"]: st.success("已完成")
+        else:
+            if not status["report"]: st.caption("先勘驗");
+            else:
+                if st.button("灌漿 & 做試體"):
+                    status["pour"] = True
+                    status["test_week"] = st.session_state.game_state["current_week"]
+                    add_log(f"{curr_floor} 灌漿完成，試體製作"); st.rerun()
 
 def add_log(msg):
     st.session_state.game_state["logs"].append(f"Week {st.session_state.game_state['current_week']}: {msg}")
