@@ -3,14 +3,12 @@ import time
 import random
 
 # ==========================================
-# 1. 遊戲資料庫 (原本的 gamedata.py 內容)
+# 1. 遊戲資料庫 (內建於主程式，免除檔案依賴問題)
 # ==========================================
 
-# 基礎設定
 REGIONS = ["台北市 (Taipei)", "新北市 (New Taipei)"]
 PROJECT_TYPES = ["素地新建 (Empty Land)", "拆併建照 (Demolition & Build)"]
 
-# 法規門檻
 THRESHOLDS = {
     "POLLUTION_FACTOR": 4600,
     "B8_AREA": 500,
@@ -19,11 +17,7 @@ THRESHOLDS = {
     "GREEN_BUILDING_COST": 50000000
 }
 
-# Ch1: 戰略與任務資料
-RESOURCE_RATES = {
-    "STEEL": 0.15,
-    "CONCRETE": 0.8,
-}
+RESOURCE_RATES = {"STEEL": 0.15, "CONCRETE": 0.8}
 
 ENV_OPTIONS = {
     "LOW": {"name": "基本防護 (帆布+人工沖洗)", "cost": 50000, "risk": 40, "desc": "省錢，但容易被環保局開單。"},
@@ -37,19 +31,13 @@ DIPLOMACY_STRATEGIES = {
 }
 
 DEMO_SEALS = {
-    "D01": {"name": "鄰房鑑定報告", "code": "NW2300", "desc": "必備！除非你敢簽切結書"},
-    "D02": {"name": "B5 土方流向", "code": "NW2600", "desc": "確認廢土去處"},
-    "D03": {"name": "B8 廢棄物計畫", "code": "NW2700", "desc": "確認垃圾去處"},
-    "D04": {"name": "防空避難室撤除", "code": "Doc_Police", "desc": "向警察局申請(若有)"},
-    "D05": {"name": "監拆報告書", "code": "NW2500", "desc": "建築師簽證"},
-    "D06": {"name": "拆除施工計畫", "code": "NW2400", "desc": "營造廠撰寫"},
-    "D07": {"name": "行政驗收(圖說抽查)", "code": "Check_Arch", "desc": "建照科圖說抽查"},
-}
-
-GREEN_QUEST = {
-    "G01": {"name": "空污費申報 (Level 1)", "code": "NW1000", "desc": "基本款，繳費取得收據"},
-    "G02": {"name": "逕流廢水計畫 (Level 2)", "code": "NW1100", "desc": "門檻：面積x工期 > 4600"},
-    "G03": {"name": "營建混合物 B8 (Level 3)", "code": "NW2700", "desc": "門檻：拆除或大型工程"},
+    "D01": {"name": "鄰房鑑定報告", "code": "NW2300"},
+    "D02": {"name": "B5 土方流向", "code": "NW2600"},
+    "D03": {"name": "B8 廢棄物計畫", "code": "NW2700"},
+    "D04": {"name": "防空避難室撤除", "code": "Doc_Police"},
+    "D05": {"name": "監拆報告書", "code": "NW2500"},
+    "D06": {"name": "拆除施工計畫", "code": "NW2400"},
+    "D07": {"name": "行政驗收(圖說抽查)", "code": "Check_Arch"},
 }
 
 # Ch2: 施工戰略資料
@@ -90,14 +78,12 @@ GEMS = {
     "GEM_ADMIN": {"name": "建管寶石", "desc": "計畫書彙整"},
 }
 
-# 隨機事件
 RANDOM_EVENTS = [
     {"id": "E01", "title": "👻 幽靈管線突襲", "desc": "怪手挖到不明電纜！圖資上明明沒有...", "options": [{"text": "停工通報", "effect": "delay", "val": 2, "msg": "工期延誤2週"}, {"text": "偷埋回去", "effect": "risk", "val": 30, "msg": "風險+30%"}]},
     {"id": "E06", "title": "🚛 違規傾倒", "desc": "土方司機把廢土倒在路邊被抓到了！", "options": [{"text": "繳罰單並悔過", "effect": "cost", "val": 100000, "msg": "罰款10萬"}, {"text": "說是司機個人行為", "effect": "risk", "val": 20, "msg": "推卸責任，風險+20%"}]},
     {"id": "E07", "title": "🧱 氯離子超標", "desc": "混凝土車快篩發現數值異常！", "options": [{"text": "整車退貨", "effect": "delay", "val": 1, "msg": "進度延誤1週"}, {"text": "賭一把灌下去", "effect": "disaster", "val": 0, "msg": "變成海砂屋！Game Over"}]}
 ]
 
-# 編碼表
 NW_CODES = {
     "NW0100": {"name": "開工申報書", "type": "doc"},
     "NW1000": {"name": "空污費收據", "type": "doc"},
@@ -120,7 +106,6 @@ NW_CODES = {
 # 2. 核心程式邏輯 (Game Logic)
 # ==========================================
 
-# 初始化狀態
 if 'game_state' not in st.session_state:
     st.session_state.game_state = {
         "stage": "Launcher",
@@ -169,10 +154,12 @@ if 'game_state' not in st.session_state:
             "配筋圖_A3.dwg", "工地主任自拍照.jpg"
         ],
         "paperless_processed_files": [],
+        # 新增變數以防萬一
+        "g02_checked": False,
     }
 
 def main():
-    st.set_page_config(page_title="跑照大作戰：完全體", layout="wide", page_icon="🏗️")
+    st.set_page_config(page_title="跑照大作戰：完全修復版", layout="wide", page_icon="🏗️")
     
     if st.session_state.game_state["active_event"]:
         render_event_dialog()
@@ -213,7 +200,6 @@ def resolve_event(opt):
 # --- 遊戲大廳 ---
 def render_launcher():
     st.title("🏗️ 專案啟動：工程情報輸入")
-    
     c1, c2 = st.columns(2)
     if c1.button("🟢 新手村 (小型透天)", use_container_width=True): set_preset("small")
     if c2.button("🔴 挑戰模式 (大型建案)", use_container_width=True): set_preset("large")
@@ -228,11 +214,9 @@ def render_launcher():
         cc1, cc2 = st.columns([3, 1])
         area_unk = cc2.checkbox("不清楚面積")
         area = cc1.number_input("基地面積", value=100, disabled=area_unk)
-        
         cc3, cc4 = st.columns([3, 1])
         dur_unk = cc4.checkbox("不清楚工期")
         dur = cc3.number_input("預計工期", value=6, disabled=dur_unk)
-        
         cc5, cc6 = st.columns([3, 1])
         floor_unk = cc6.checkbox("不清楚樓地板")
         floor_area = cc5.number_input("總樓地板面積", value=300, disabled=floor_unk)
@@ -252,7 +236,6 @@ def render_launcher():
             st.session_state.game_state["demo_phase_passed"] = True
             st.session_state.game_state["b5_closed"] = True
             st.session_state.game_state["is_demo_shield_active"] = True
-        
         st.session_state.game_state["stage"] = "MainGame"
         st.rerun()
 
@@ -317,7 +300,7 @@ def render_chapter_1():
     st.header("📂 第一章：開工申報 (戰略部署)")
     p_data = st.session_state.game_state["project_data"]
     
-    # 初始化重要變數，防止 UnboundLocalError
+    # [修正] 初始化所有關鍵變數，防止 UnboundLocalError
     seals_ok = False
     green_ok = False
     
@@ -385,12 +368,13 @@ def render_chapter_1():
         else:
             seals_ok = True
 
-        # B. 環保任務 (*** 修正：g02 預設值與狀態保存 ***)
+        # B. 環保任務
         st.subheader("🌳 環保任務")
         with st.container(border=True):
             st.checkbox("G01 空污費", value=True, disabled=True)
             
-            g02 = False # 預設值，防止報錯
+            # [修正] 初始化 g02
+            g02 = False
             
             if p_data["area_unknown"] or p_data["duration_unknown"]:
                 st.info("🔒 G02: 資料不明...")
@@ -402,7 +386,7 @@ def render_chapter_1():
             else:
                 f = p_data["area"] * p_data["duration"]
                 if f >= THRESHOLDS["POLLUTION_FACTOR"]:
-                    # 使用 session state 記錄勾選狀態
+                    # 使用 session state 保持狀態
                     chk_val = st.session_state.game_state.get("g02_checked", False)
                     g02 = st.checkbox(f"G02 逕流廢水 (係數{f})", value=chk_val, key="g02_box")
                     st.session_state.game_state["g02_checked"] = g02
@@ -429,7 +413,7 @@ def render_chapter_1():
                 st.warning("🔒 任務未解鎖")
                 
             if st.session_state.game_state["commencement_done"]:
-                # 戰略結算 (只執行一次)
+                # 戰略結算
                 if not st.session_state.game_state.get("ch1_strategy_done"):
                     st.session_state.game_state["ch1_strategy_done"] = True
                     st.session_state.game_state["budget_used"] += ENV_OPTIONS[env_choice]["cost"]
@@ -487,6 +471,16 @@ def render_chapter_2():
         st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
+    # [修正] 初始化變數，防止 UnboundLocalError
+    dir_valid = False
+    layout_valid = False
+    sel_key = "BOTTOM_UP" # 預設值
+    m_data = CONSTRUCTION_METHODS[sel_key]
+    sel_dir = TEAM_MEMBERS["DIRECTOR"][0]
+    sel_pe = TEAM_MEMBERS["PE"][0]
+    sel_saf = TEAM_MEMBERS["SAFETY"][0]
+
+    # 1. 工法選擇
     st.subheader("1. 決定施工戰略")
     curr_method = st.session_state.game_state["strategy"].get("method", "BOTTOM_UP")
     m_opts = list(CONSTRUCTION_METHODS.keys())
@@ -506,13 +500,12 @@ def render_chapter_2():
         dir_opts = {m["name"]: m for m in TEAM_MEMBERS["DIRECTOR"]}
         sel_dir_name = st.selectbox("指派人選", list(dir_opts.keys()))
         sel_dir = dir_opts[sel_dir_name]
-        
-        dir_valid = True
         if sel_dir["id"] == "DIR_SENIOR" and not has_cert:
             st.error("❌ 資格不符：缺少 NW3500 (請回 Ch1 製作)")
             dir_valid = False
         else:
             st.caption(f"薪資: {sel_dir['salary']}")
+            dir_valid = True
 
     with c_p2:
         st.markdown("🏗️ **專任技師**")
