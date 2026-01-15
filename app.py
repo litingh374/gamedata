@@ -3,7 +3,7 @@ import time
 import random
 
 # ==========================================
-# 1. 遊戲資料庫 (Data)
+# 1. 遊戲資料庫 (Data) - 已根據上傳文件更新
 # ==========================================
 
 REGIONS = ["台北市 (Taipei)", "新北市 (New Taipei)"]
@@ -30,14 +30,15 @@ DIPLOMACY_STRATEGIES = {
     "DOVE": {"name": "敦親睦鄰 (鴿派)", "cost": 80000, "anger": -20, "desc": "送禮賠笑，花錢消災。鄰居心情好。"}
 }
 
+# 根據「建築拆除併建造執照之行政程序差異指南」更新
 DEMO_SEALS = {
-    "D01": {"name": "鄰房鑑定報告", "code": "NW2300"},
-    "D02": {"name": "B5 土方流向", "code": "NW2600"},
-    "D03": {"name": "B8 廢棄物計畫", "code": "NW2700"},
-    "D04": {"name": "防空避難室撤除", "code": "Doc_Police"},
-    "D05": {"name": "監拆報告書", "code": "NW2500"},
-    "D06": {"name": "拆除施工計畫", "code": "NW2400"},
-    "D07": {"name": "行政驗收(圖說抽查)", "code": "Check_Arch"},
+    "D01": {"name": "鄰房現況鑑定報告書", "code": "NW2300"},
+    "D02": {"name": "營建剩餘土石方(B5)處理計畫", "code": "NW2600"},
+    "D03": {"name": "營建混合物(B8)處理計畫", "code": "NW2700"},
+    "D04": {"name": "防空避難室撤除核准函", "code": "Doc_Police"},
+    "D05": {"name": "建築師監拆報告書", "code": "NW2500"},
+    "D06": {"name": "建築物拆除施工計畫書", "code": "NW2400"},
+    "D07": {"name": "行政驗收 (建照科圖說抽查)", "code": "Check_Arch"},
 }
 
 CONSTRUCTION_METHODS = {
@@ -83,21 +84,24 @@ RANDOM_EVENTS = [
     {"id": "E07", "title": "🧱 氯離子超標", "desc": "混凝土車快篩發現數值異常！", "options": [{"text": "整車退貨", "effect": "delay", "val": 1, "msg": "進度延誤1週"}, {"text": "賭一把灌下去", "effect": "disaster", "val": 0, "msg": "變成海砂屋！Game Over"}]}
 ]
 
+# === [重要更新] 依據真實公文全銜修正 ===
 NW_CODES = {
-    "NW0100": {"name": "開工申報書", "type": "doc"},
-    "NW1000": {"name": "空污費收據", "type": "doc"},
-    "NW1100": {"name": "逕流廢水核備函", "type": "doc"},
-    "NW2300": {"name": "鄰房鑑定報告", "type": "doc"},
-    "NW2400": {"name": "拆除施工計畫書", "type": "doc"},
-    "NW2500": {"name": "監拆報告書", "type": "doc"},
-    "NW2600": {"name": "B5土方核准函", "type": "doc"},
-    "NW2700": {"name": "B8廢棄物核准函", "type": "doc"},
-    "NW3300": {"name": "施工計畫書", "type": "doc"},
-    "NW5000": {"name": "配筋圖", "type": "drawing"},
-    "NW3500": {"name": "工地主任證書", "type": "doc"},
-    "NS1300": {"name": "鋼筋無輻射證明", "type": "doc"},
-    "NS1900": {"name": "混凝土抗壓報告", "type": "doc"},
-    "NS2200": {"name": "公會抽查紀錄表", "type": "doc"},
+    "NW0100": {"name": "B11-1 建築工程開工申報書", "type": "doc"},
+    "NW0300": {"name": "承造人施工計畫書簽章負責表", "type": "doc"},
+    "NW1000": {"name": "營建工程空氣污染防制費繳款收據", "type": "doc"},
+    "NW1100": {"name": "逕流廢水削減計畫核備函", "type": "doc"},
+    "NW2300": {"name": "鄰房現況鑑定報告書 (公會備查函)", "type": "doc"},
+    "NW2400": {"name": "建築物拆除施工計畫書 (B14-5)", "type": "doc"},
+    "NW2500": {"name": "建築物監拆報告書 (B14-3)", "type": "doc"},
+    "NW2600": {"name": "營建剩餘土石方處理計畫 (B5核准函)", "type": "doc"},
+    "NW2700": {"name": "營建混合物(廢棄物)處理計畫 (B8核准函)", "type": "doc"},
+    "NW3300": {"name": "建築工程施工計畫書 (含防災/品管)", "type": "doc"},
+    "NW3500": {"name": "工地主任執業證 (含公會會員證)", "type": "doc"},
+    "NW5000": {"name": "結構配筋圖 (A3掃描檔)", "type": "drawing"},
+    "NW5100": {"name": "安全圍籬綠美化及防溢座圖說", "type": "drawing"},
+    "NS1300": {"name": "鋼筋無輻射證明書", "type": "doc"},
+    "NS1900": {"name": "混凝土抗壓強度試驗報告", "type": "doc"},
+    "NS2200": {"name": "建築師公會抽查紀錄表", "type": "doc"},
     "NS2400": {"name": "紅火蟻清查紀錄表", "type": "doc"},
 }
 
@@ -147,10 +151,16 @@ if 'game_state' not in st.session_state:
             "2F": {"rebar": False, "form": False, "pour": False, "report": False, "test_week": None},
         },
         "logs": [],
+        # [更新] 無紙化原始檔名稱也同步更新，增加真實感
         "paperless_raw_files": [
-            "開工申報書_用印.docx", "空污費收據.jpg", "拆除施工計畫_核定.pdf",
-            "鄰房鑑定報告.pdf", "逕流廢水核備函.jpg", "工地主任證書_含勞保.pdf",
-            "配筋圖_A3.dwg", "工地主任自拍照.jpg"
+            "B11-1_開工申報書_已用印.docx", 
+            "空污費繳款收據_109年.jpg", 
+            "拆除施工計畫書_核定版.pdf",
+            "鄰房鑑定報告_公會函.pdf", 
+            "逕流廢水核備函.jpg", 
+            "工地主任執業證_阿明.pdf",
+            "結構配筋圖_V2_A3.dwg", 
+            "工地主任自拍照.jpg"
         ],
         "paperless_processed_files": [],
         "g02_checked": False,
@@ -300,14 +310,12 @@ def render_chapter_1():
     st.header("📂 第一章：開工申報 (戰略部署)")
     p_data = st.session_state.game_state["project_data"]
     
-    # 變數防呆初始化 (關鍵修正!)
     env_choice = "LOW"
     dip_choice = "HAWK"
     g02 = False
     green_ok = False
     seals_ok = False
     
-    # 1. 資源與外交
     with st.expander("📊 戰略與資源配置", expanded=True):
         if p_data["floor_area_unknown"]:
             st.warning("🔒 樓地板面積不明，無法進行資源精算。")
@@ -336,13 +344,11 @@ def render_chapter_1():
 
     st.markdown("---")
 
-    # 2. 行政程序
     col_quest, col_system = st.columns([3, 2])
     
     with col_quest:
         config_type = st.session_state.game_state["config"]["type"]
         
-        # A. 拆除封印
         if "拆併建" in config_type:
             st.subheader("🔥 拆除七大封印")
             with st.container(border=True):
@@ -371,10 +377,11 @@ def render_chapter_1():
         else:
             seals_ok = True
 
-        # B. 環保任務
         st.subheader("🌳 環保任務")
         with st.container(border=True):
-            st.checkbox("G01 空污費", value=True, disabled=True)
+            st.checkbox("G01 空污費申報 (NW1000)", value=True, disabled=True)
+            
+            g02 = False 
             
             if p_data["area_unknown"] or p_data["duration_unknown"]:
                 st.info("🔒 G02: 資料不明...")
@@ -386,9 +393,8 @@ def render_chapter_1():
             else:
                 f = p_data["area"] * p_data["duration"]
                 if f >= THRESHOLDS["POLLUTION_FACTOR"]:
-                    # 使用 session state 保持狀態
                     chk_val = st.session_state.game_state.get("g02_checked", False)
-                    g02 = st.checkbox(f"G02 逕流廢水 (係數{f})", value=chk_val, key="g02_box")
+                    g02 = st.checkbox(f"G02 逕流廢水 (係數{f}) (NW1100)", value=chk_val, key="g02_box")
                     st.session_state.game_state["g02_checked"] = g02
                 else:
                     st.write("~~G02 逕流廢水~~ (免辦)")
@@ -413,7 +419,6 @@ def render_chapter_1():
                 st.warning("🔒 任務未解鎖")
                 
             if st.session_state.game_state["commencement_done"]:
-                # 戰略結算
                 if not st.session_state.game_state.get("ch1_strategy_done"):
                     st.session_state.game_state["ch1_strategy_done"] = True
                     st.session_state.game_state["budget_used"] += ENV_OPTIONS[env_choice]["cost"]
@@ -435,7 +440,7 @@ def render_paperless_minigame():
         with st.container(border=True):
             col_a, col_b, col_c = st.columns([2, 2, 1])
             raws = st.session_state.game_state["paperless_raw_files"]
-            sel_raw = col_a.selectbox("原始檔", raws) if raws else None
+            sel_raw = col_a.selectbox("選擇原始檔", raws) if raws else None
             sel_code = col_b.selectbox("NW 編碼", ["請選擇..."] + list(NW_CODES.keys()))
             if col_c.button("轉檔 ➡️", type="primary", disabled=not sel_raw):
                 st.session_state.game_state["paperless_raw_files"].remove(sel_raw)
@@ -450,6 +455,7 @@ def render_paperless_minigame():
         to_upload = st.multiselect("勾選上傳", processed, default=processed)
         
         if st.button("🚀 確認送出", type="primary", use_container_width=True):
+            # 檢查 NW0100 (B11-1 開工申報書)
             if any("NW0100" in f for f in to_upload):
                 st.session_state.game_state["commencement_done"] = True
                 st.session_state.game_state["doing_paperless"] = False
@@ -457,7 +463,7 @@ def render_paperless_minigame():
                 add_log("線上掛號成功。")
                 st.rerun()
             else:
-                st.error("退件：缺少 NW0100！")
+                st.error("退件：缺少 NW0100 (開工申報書)！")
 
     with c_list:
         st.markdown("📜 **編碼對照表**")
@@ -471,7 +477,6 @@ def render_chapter_2():
         st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
-    # 變數防呆初始化 (關鍵修正!)
     sel_key = "BOTTOM_UP"
     dir_valid = False
     layout_valid = False
@@ -480,12 +485,10 @@ def render_chapter_2():
     sel_saf = TEAM_MEMBERS["SAFETY"][0]
     m_data = CONSTRUCTION_METHODS[sel_key]
 
-    # 1. 工法選擇
     st.subheader("1. 決定施工戰略")
     curr_method = st.session_state.game_state["strategy"].get("method", "BOTTOM_UP")
     m_opts = list(CONSTRUCTION_METHODS.keys())
     m_lbls = [f"{k}: {v['name']}" for k, v in CONSTRUCTION_METHODS.items()]
-    # 這裡加入 try-except 防止 index error
     try:
         idx = m_opts.index(curr_method)
     except ValueError:
