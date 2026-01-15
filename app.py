@@ -13,9 +13,9 @@ if 'game_state' not in st.session_state:
         # Ch1: 開工
         "completed_trials": [],
         "commencement_done": False,
-        "doing_paperless": False,     # 控制是否正在玩無紙化小遊戲
+        "doing_paperless": False, # 控制小遊戲切換
         
-        # 無紙化小遊戲專用狀態
+        # 無紙化檔案狀態
         "paperless_raw_files": [
             "施工計畫書_核定版.docx", "開工申報書_用印掃描.jpg", 
             "配筋圖_A3.dwg", "圍籬綠美化設計圖.png", 
@@ -43,7 +43,7 @@ if 'game_state' not in st.session_state:
     }
 
 def main():
-    st.set_page_config(page_title="跑照大作戰：完全體", layout="wide", page_icon="🏗️")
+    st.set_page_config(page_title="跑照大作戰：完全修正版", layout="wide", page_icon="🏗️")
     
     if st.session_state.game_state["stage"] == "Launcher":
         render_launcher()
@@ -70,7 +70,7 @@ def render_launcher():
         if st.button("🚀 生成專案", type="primary", use_container_width=True):
             st.session_state.game_state["config"] = {"region": region, "type": p_type, "is_mrt": is_mrt}
             
-            # 素地預設拆除通過
+            # 若為素地，預設拆除階段通過，且無 B5 問題
             if "素地" in p_type:
                 st.session_state.game_state["demo_phase_passed"] = True
                 st.session_state.game_state["b5_closed"] = True
@@ -83,7 +83,8 @@ def render_launcher():
 # ==========================================
 def render_main_game():
     cfg = st.session_state.game_state["config"]
-    # 判斷是否正在玩小遊戲，如果是，只顯示小遊戲介面，隱藏 Tab
+    
+    # 檢查是否正在進行無紙化小遊戲
     if st.session_state.game_state["doing_paperless"]:
         render_paperless_minigame()
         return
@@ -109,7 +110,6 @@ def render_main_game():
 # --- Ch1: 開工申報 ---
 def render_chapter_1():
     st.header("📂 第一章：開工申報")
-    
     col1, col2 = st.columns([2, 1])
     with col1:
         st.subheader("七大試煉")
@@ -118,17 +118,15 @@ def render_chapter_1():
             is_done = tid in completed
             icon = "✅" if is_done else "🔲"
             
-            # 按鈕顯示邏輯
             if st.button(f"{icon} {data['name']}", key=tid, disabled=is_done):
                 if tid == "T04":
-                    # --- 觸發無紙化小遊戲 ---
+                    # 觸發無紙化小遊戲
                     st.session_state.game_state["doing_paperless"] = True
                     st.rerun()
                 else:
                     st.session_state.game_state["completed_trials"].append(tid)
                     add_log(f"完成試煉：{data['name']}")
                     st.rerun()
-                    
     with col2:
         st.subheader("狀態")
         st.progress(len(completed) / 7, text=f"{len(completed)}/7")
@@ -138,30 +136,23 @@ def render_chapter_1():
                 st.balloons()
                 add_log("第一章通關！開工申報完成。")
 
-# --- 無紙化小遊戲 (嵌入式) ---
+# --- 無紙化小遊戲 (嵌入模組) ---
 def render_paperless_minigame():
     st.title("💻 台北市無紙化上傳系統")
     st.info("任務：將左側原始檔配對正確編碼，轉成 PDF 後上傳。")
-    
-    if st.button("🔙 放棄並返回列表"):
+    if st.button("🔙 放棄並返回"):
         st.session_state.game_state["doing_paperless"] = False
         st.rerun()
 
     col_ws, col_cheat = st.columns([2, 1])
-
     with col_ws:
         st.subheader("🛠️ 工程師桌面")
         with st.container(border=True):
             c1, c2, c3 = st.columns([2, 2, 1])
-            
-            # 1. 選擇原始檔
             raw_files = st.session_state.game_state["paperless_raw_files"]
             selected_raw = c1.selectbox("原始文件", raw_files) if raw_files else None
-            
-            # 2. 選擇編碼
             selected_code = c2.selectbox("NW 編碼", ["請選擇..."] + list(NW_CODES.keys()))
             
-            # 3. 轉檔
             if c3.button("轉檔 ➡️", type="primary", disabled=not selected_raw):
                 st.session_state.game_state["paperless_raw_files"].remove(selected_raw)
                 clean_name = selected_raw.split('.')[0].replace("_核定版","").replace("_A3","")
@@ -171,35 +162,31 @@ def render_paperless_minigame():
                 st.rerun()
 
         with st.container(border=True):
-            st.write("#### 準備上傳的文件")
+            st.write("#### 準備上傳")
             processed = st.session_state.game_state["paperless_processed_files"]
             to_upload = st.multiselect("勾選上傳", processed, default=processed)
-            
-            if st.button("🚀 送出電子簽章 (完成任務)", type="primary", use_container_width=True):
-                # 簡易檢查：必須要有施工計畫書 (NW3300)
+            if st.button("🚀 送出電子簽章", type="primary", use_container_width=True):
                 if any("NW3300" in f for f in to_upload):
                     st.success("✅ 系統審核通過！")
                     time.sleep(1)
-                    # 標記 T04 完成，並關閉小遊戲
                     if "T04" not in st.session_state.game_state["completed_trials"]:
                         st.session_state.game_state["completed_trials"].append("T04")
-                    
                     st.session_state.game_state["doing_paperless"] = False
-                    add_log("無紙化上傳成功 (T04完成)。")
+                    add_log("無紙化上傳成功。")
                     st.rerun()
                 else:
-                    st.error("❌ 退件：缺少 NW3300 施工計畫書！")
+                    st.error("❌ 缺少 NW3300 施工計畫書！")
 
     with col_cheat:
         st.markdown("🟢 **HiCOS 已連線**")
-        cheat_sheet_data = [{"代碼": k, "名稱": v["name"]} for k, v in NW_CODES.items()]
-        st.dataframe(cheat_sheet_data, hide_index=True, use_container_width=True)
+        cheat_data = [{"代碼": k, "名稱": v["name"]} for k, v in NW_CODES.items()]
+        st.dataframe(cheat_data, hide_index=True, use_container_width=True)
 
 # --- Ch2: 施工計畫 ---
 def render_chapter_2():
     st.header("📜 第二章：施工計畫")
     if not st.session_state.game_state["commencement_done"]:
-        st.warning("🔒 請先完成第一章。")
+        st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
     col1, col2 = st.columns([2, 1])
@@ -227,12 +214,12 @@ def render_chapter_2():
 def render_chapter_3():
     st.header("🚜 第三章：拆除整備")
     if not st.session_state.game_state["plan_approved"]:
-        st.warning("🔒 請先完成第二章。")
+        st.warning("🔒 鎖定中：請先完成第二章。")
         return
 
     config_type = st.session_state.game_state["config"]["type"]
     if "素地" in config_type:
-        st.success("✅ 素地新建：本章節自動通過。")
+        st.success("✅ 素地新建：無需拆除，本章節自動通過。")
         return
 
     st.error("⚠️ 拆併建模式：")
@@ -244,10 +231,12 @@ def render_chapter_3():
         if st.button("B5 廢棄物結案"):
             st.session_state.game_state["b5_closed"] = True
             st.success("B5 已結案")
+            add_log("B5 結案完成。")
     with c2:
         if st.button("執行拆除"):
             if not st.session_state.game_state["is_demo_shield_active"]:
                 st.error("💥 未鑑定即拆除！發生鄰損！")
+                add_log("發生鄰損事件。")
             else:
                 st.session_state.game_state["demo_progress"] = 100
                 st.success("拆除完成！")
@@ -256,12 +245,20 @@ def render_chapter_3():
         st.session_state.game_state["demo_phase_passed"] = True
         st.success("拆除階段完成！")
 
-# --- Ch4: 導溝 ---
+# --- Ch4: 導溝勘驗 (邏輯修正版) ---
 def render_chapter_4():
     st.header("🧱 第四章：導溝勘驗")
-    if not st.session_state.game_state["demo_phase_passed"]:
-        st.warning("🔒 請先完成第三章。")
+    
+    # === 核心修正：雙重檢查 ===
+    # 1. 確保第二章 (施工計畫) 真的做完了
+    if not st.session_state.game_state["plan_approved"]:
+        st.warning("🔒 鎖定中：請先完成第二章「施工計畫」。")
         return
+    # 2. 確保第三章 (拆除) 通過 (素地自動通過，拆併建需手動)
+    if not st.session_state.game_state["demo_phase_passed"]:
+        st.warning("🔒 鎖定中：請先完成第三章「拆除整備」。")
+        return
+    # ==========================
 
     col1, col2 = st.columns(2)
     with col1:
@@ -274,17 +271,18 @@ def render_chapter_4():
     with col2:
         if gw_prog >= 100:
             if st.button("📞 申報導溝勘驗", type="primary"):
-                # 陷阱檢查
+                # 陷阱檢查：如果是拆併建，B5 必須已結案
                 config_type = st.session_state.game_state["config"]["type"]
                 b5_ok = st.session_state.game_state["b5_closed"]
+                
                 if "拆併建" in config_type and not b5_ok:
-                    st.error("🚫 退件！B5 未結案。")
+                    st.error("🚫 退件！拆除廢棄物 (B5) 尚未結案。")
                 else:
                     st.session_state.game_state["guide_wall_inspected"] = True
                     st.balloons()
                     add_log("導溝勘驗通過。")
 
-# --- Ch5: BOSS ---
+# --- Ch5: 放樣 BOSS ---
 def render_chapter_5():
     st.header("🏯 終章：放樣勘驗")
     if not st.session_state.game_state["guide_wall_inspected"]:

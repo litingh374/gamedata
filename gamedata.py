@@ -25,7 +25,7 @@ GEMS = {
     "GEM_ADMIN": {"name": "建管寶石", "desc": "計畫書彙整"},
 }
 
-# === Chapter 5: 放樣 BOSS (改為 Ch5) ===
+# === Chapter 5: 放樣 BOSS ===
 SETTING_OUT_STEPS = [
     {"id": "S1", "name": "網路掛件", "desc": "系統檢核", "hp": 20},
     {"id": "S2", "name": "紙本掛件", "desc": "承辦核對", "hp": 20},
