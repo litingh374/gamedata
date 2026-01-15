@@ -1,26 +1,24 @@
 # gamedata.py
 
-# === Stage 1 & 2: 任務試煉資料 ===
-TRIALS = {
-    "T01": {"name": "繳交空污費", "category": "環保局 (綠)", "color": "success", "desc": "計算規模 -> 繳費 -> 取得收據"},
-    "T02": {"name": "逕流廢水削減計畫", "category": "環保局 (綠)", "color": "success", "desc": "撰寫計畫 -> 上傳 -> 取得核定函"},
-    "T03": {"name": "廢棄物處理計畫 (拆+建)", "category": "環保局 (綠)", "color": "success", "desc": "預估量 -> 尋找處理場 -> 取得管制編號"},
-    "T04": {"name": "建管開工(無紙化)準備", "category": "建管處 (藍)", "color": "primary", "desc": "圖說掃描 -> 上傳系統 -> 狀態 Ready"},
-    "T05": {"name": "拆除土方外運審查 (B5)", "category": "建管處 (藍)", "color": "primary", "desc": "規劃路線 -> 取得土方憑證"},
-    "T06": {"name": "鄰房現況鑑定", "category": "公會/第三方 (橘)", "color": "warning", "desc": "聯絡公會 -> 拍照 -> 取得鑑定報告"},
-    "T07": {"name": "拆除施工計畫", "category": "公會/第三方 (橘)", "color": "warning", "desc": "說明會 -> 審查會 -> 取得核備公文"},
+# === Chapter 2: 六大寶石 (施工計畫子任務) ===
+GEMS = {
+    "GEM_GUILD": {"name": "公會寶石", "desc": "鄰房說明會 & 施工計畫外審", "type": "social"},
+    "GEM_PIPE": {"name": "管線寶石", "desc": "五大管線圖資查詢", "type": "explore"},
+    "GEM_TRAFFIC": {"name": "交通寶石", "desc": "交通維持計畫 (含塔吊)", "type": "strategy"},
+    "GEM_SURVEY": {"name": "測量寶石", "desc": "路心樁及地界點復原", "type": "precision"},
+    "GEM_SAFETY": {"name": "勞安寶石", "desc": "危險場所評估", "type": "defense"},
+    "GEM_ADMIN": {"name": "建管寶石", "desc": "施工計畫書文件彙整", "type": "doc"},
 }
 
-ARCHITECT_ITEM = "建造執照 (Building Permit)"
+# === Chapter 4: 放樣勘驗五大關卡 ===
+SETTING_OUT_STEPS = [
+    {"id": "S1", "name": "網路掛件", "desc": "系統檢核文件齊全度", "hp": 20},
+    {"id": "S2", "name": "紙本掛件", "desc": "物理送件，承辦人核對", "hp": 20},
+    {"id": "S3", "name": "現場會勘", "desc": "建築師與公務員親臨工地", "hp": 30}, # 魔王關
+    {"id": "S4", "name": "文案核對", "desc": "圖說與現場一致性檢查", "hp": 15},
+    {"id": "S5", "name": "簽核准用", "desc": "獲得最終核准函", "hp": 15},
+]
 
-# === Stage 2: 無紙化系統編碼表 ===
-NW_CODES = {
-    "NW0100": {"name": "建築工程開工申報書", "type": "doc", "required": True},
-    "NW0200": {"name": "起造人名冊", "type": "doc", "required": False},
-    "NW3300": {"name": "施工計畫書", "type": "doc", "required": True},
-    "NW5000": {"name": "配筋圖", "type": "drawing", "format": "A3", "required": True},
-    "NW5100": {"name": "圍籬綠美化圖說", "type": "drawing", "condition": "road_width >= 10"},
-    "NW1100": {"name": "逕流廢水削減計畫核備函", "type": "doc", "condition": "large_scale"},
-    "NW1500": {"name": "營造業承攬手冊", "type": "doc", "required": True},
-    "NW3500": {"name": "工地主任證書", "type": "doc", "required": True},
-}
+# 保留原本的資料，以免舊程式報錯 (如果有的話)
+TRIALS = {} 
+NW_CODES = {}
