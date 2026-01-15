@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 import random
+# 確保 gamedata.py 是最新版 (包含 RANDOM_EVENTS, NW_CODES 等)
 from gamedata import REGIONS, PROJECT_TYPES, THRESHOLDS, DEMO_SEALS, GREEN_QUEST, GEMS, SETTING_OUT_STEPS, NW_CODES, RANDOM_EVENTS
 
 # ==========================================
@@ -42,16 +43,16 @@ if 'game_state' not in st.session_state:
         "boss_hp": 100,
         "logs": [],
         
-        # 無紙化檔案
+        # 無紙化檔案 (預設原始檔)
         "paperless_raw_files": [
-            "開工申報書.docx", "空污費收據.jpg", "拆除施工計畫.pdf",
-            "鄰房鑑定報告.pdf", "逕流廢水核備函.jpg", "自拍照.jpg"
+            "開工申報書_用印.docx", "空污費收據.jpg", "拆除施工計畫_核定.pdf",
+            "鄰房鑑定報告.pdf", "逕流廢水核備函.jpg", "工地主任自拍照.jpg"
         ],
         "paperless_processed_files": [],
     }
 
 def main():
-    st.set_page_config(page_title="跑照大作戰：生存模擬版", layout="wide", page_icon="🏗️")
+    st.set_page_config(page_title="跑照大作戰：完全體", layout="wide", page_icon="🏗️")
     
     # 處理隨機事件彈窗 (必須在最上層)
     if st.session_state.game_state["active_event"]:
@@ -70,7 +71,7 @@ def render_event_dialog():
     evt = st.session_state.game_state["active_event"]
     
     st.error(f"🚨 突發狀況：{evt['title']}")
-    st.image("https://placeholder.co/600x200?text=EMERGENCY", use_container_width=True)
+    # 這裡可以用 st.image 顯示事件相關圖片
     st.markdown(f"**{evt['desc']}**")
     
     st.markdown("### ⚠️ 請選擇處置方案：")
@@ -191,6 +192,7 @@ def set_preset(mode):
 def render_main_game():
     cfg = st.session_state.game_state["config"]
     
+    # --- 小遊戲路由 (優先顯示) ---
     if st.session_state.game_state["doing_paperless"]:
         render_paperless_minigame()
         return
@@ -247,18 +249,12 @@ def advance_week():
         st.session_state.game_state["active_event"] = event
         st.rerun()
     else:
-        # 平安無事
-        msgs = [
-            "本週進度順利，工地主任心情不錯。", 
-            "沒有特殊狀況，大家準時下班。", 
-            "天氣晴朗，施工進度超前。",
-            "跑照人員去買了下午茶。"
-        ]
+        msgs = ["進度順利。", "天氣晴朗。", "跑照人員去買了下午茶。", "工地主任心情不錯。"]
         add_log(f"Week {st.session_state.game_state['current_week']}: {random.choice(msgs)}")
         st.toast("本週平安無事！", icon="🕊️")
 
 # ==========================================
-# 以下為各章節渲染 (簡化版，邏輯同前，但加入參數依賴)
+# Chapter 1: 開工申報
 # ==========================================
 def render_chapter_1():
     st.header("📂 第一章：開工申報")
@@ -298,8 +294,6 @@ def render_chapter_1():
         st.subheader("🌳 環保任務")
         with st.container(border=True):
             st.checkbox("G01 空污費", value=True, disabled=True)
-            
-            # 迷霧機制
             if p_data["area_unknown"] or p_data["duration_unknown"]:
                 st.info("🔒 G02: 資料不明...")
                 if st.button("📞 打電話確認"):
@@ -314,7 +308,6 @@ def render_chapter_1():
                 else:
                     st.write("~~G02 逕流廢水~~ (免辦)")
                     g02 = True
-            
             green_ok = g02
 
     with col_system:
@@ -327,27 +320,77 @@ def render_chapter_1():
         else:
             st.success("HiCOS 連線")
             if seals_ok and green_ok:
-                if st.button("上傳文件"):
+                # 這裡進入無紙化小遊戲
+                if st.button("進入虛擬桌面 (上傳)", type="primary"):
                     st.session_state.game_state["doing_paperless"] = True
                     st.rerun()
+            else:
+                st.warning("🔒 任務未解鎖 (請先完成左側任務)")
+                
             if st.session_state.game_state["commencement_done"]:
-                st.success("開工申報完成")
+                st.success("🎉 開工申報完成！")
 
+# ==========================================
+# 無紙化小遊戲 (功能全開版)
+# ==========================================
 def render_paperless_minigame():
-    st.title("💻 無紙化上傳")
-    if st.button("🔙 返回"):
+    st.title("💻 台北市無紙化上傳系統")
+    st.info("任務：請將左側的原始檔案，配對正確的 NW 編碼進行轉檔，最後勾選送出。")
+    
+    if st.button("🔙 放棄並返回列表"):
         st.session_state.game_state["doing_paperless"] = False
-        st.rerun()
-    if st.button("🚀 送出 (模擬)"):
-        st.session_state.game_state["commencement_done"] = True
-        st.session_state.game_state["doing_paperless"] = False
-        st.balloons()
         st.rerun()
 
+    c_ws, c_list = st.columns([2, 1])
+    with c_ws:
+        st.subheader("🛠️ 轉檔工作區")
+        with st.container(border=True):
+            col_a, col_b, col_c = st.columns([2, 2, 1])
+            
+            raws = st.session_state.game_state["paperless_raw_files"]
+            # 如果還有檔案才顯示下拉選單
+            sel_raw = col_a.selectbox("選擇原始檔", raws) if raws else None
+            sel_code = col_b.selectbox("NW 編碼", ["請選擇..."] + list(NW_CODES.keys()))
+            
+            if col_c.button("轉檔 ➡️", type="primary", disabled=not sel_raw):
+                st.session_state.game_state["paperless_raw_files"].remove(sel_raw)
+                # 模擬轉檔命名
+                clean_name = sel_raw.split('.')[0]
+                new_name = f"{sel_code}_{clean_name}.pdf"
+                st.session_state.game_state["paperless_processed_files"].append(new_name)
+                st.toast(f"已轉檔：{new_name}")
+                st.rerun()
+        
+        st.write("#### 準備上傳的文件")
+        processed = st.session_state.game_state["paperless_processed_files"]
+        to_upload = st.multiselect("勾選上傳", processed, default=processed)
+        
+        if st.button("🚀 確認送出 (啟動計時)", type="primary", use_container_width=True):
+            # 檢查是否包含 NW0100 (開工申報書)
+            has_required = any("NW0100" in f for f in to_upload)
+            
+            if has_required:
+                st.session_state.game_state["commencement_done"] = True
+                st.session_state.game_state["doing_paperless"] = False
+                st.balloons()
+                add_log("線上掛號成功！進入紙本倒數。")
+                st.rerun()
+            else:
+                st.error("退件：缺少 NW0100 開工申報書！")
+
+    with c_list:
+        st.markdown("📜 **編碼對照表**")
+        # 顯示 NW 編碼表供查詢
+        data = [{"代碼": k, "名稱": v["name"]} for k, v in NW_CODES.items()]
+        st.dataframe(data, hide_index=True, use_container_width=True)
+
+# ==========================================
+# Chapter 2~5 (保持原功能)
+# ==========================================
 def render_chapter_2():
     st.header("📜 第二章：施工計畫")
     if not st.session_state.game_state["commencement_done"]:
-        st.warning("🔒 先完成 Ch1")
+        st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
     collected = st.session_state.game_state["collected_gems"]
@@ -369,7 +412,7 @@ def render_chapter_2():
 def render_chapter_3():
     st.header("🚜 第三章：拆除")
     if not st.session_state.game_state["plan_approved"]:
-        st.warning("🔒 先完成 Ch2")
+        st.warning("🔒 鎖定中：請先完成第二章。")
         return
     if st.session_state.game_state["demo_phase_passed"]:
         st.success("本章節通過")
@@ -392,14 +435,13 @@ def render_chapter_3():
 def render_chapter_4():
     st.header("🧱 第四章：導溝")
     if not st.session_state.game_state["demo_phase_passed"]:
-        st.warning("🔒 先完成 Ch3")
+        st.warning("🔒 鎖定中：請先完成第三章。")
         return
     if st.button("施工"):
         st.session_state.game_state["guide_wall_progress"] = 100
         st.success("施工完成")
     if st.session_state.game_state["guide_wall_progress"] >= 100:
         if st.button("申報勘驗"):
-            # B5 檢查
             if "拆併建" in st.session_state.game_state["config"]["type"] and not st.session_state.game_state["b5_closed"]:
                 st.error("🚫 退件：B5 未結案")
             else:
@@ -409,7 +451,7 @@ def render_chapter_4():
 def render_chapter_5():
     st.header("🏯 終章：放樣")
     if not st.session_state.game_state["guide_wall_inspected"]:
-        st.warning("🔒 先完成 Ch4")
+        st.warning("🔒 鎖定中：請先完成第四章。")
         return
     if st.button("⚔️ 通關"):
         st.balloons()
