@@ -1,203 +1,175 @@
 import streamlit as st
 import time
-from gamedata import NW_CODES 
+from gamedata import TRIALS, ARCHITECT_ITEM
 
 # --- 1. 遊戲初始化 (Session State) ---
-# 這裡設定遊戲開始時的預設狀態
-if 'project_status' not in st.session_state:
-    st.session_state.project_status = {
-        "step": "Project_Setup", # 當前階段：Project_Setup -> Paperless_System -> Site_Inspection
-        "params": {}             # 基地參數
+if 'game_state' not in st.session_state:
+    st.session_state.game_state = {
+        "has_permit": False,       # Stage 1: 是否取得建照
+        "completed_trials": [],    # Stage 2: 已完成的試煉 ID
+        "is_construction_started": False, # Stage 3: 是否已開工
+        "inventory": []            # 背包
     }
 
-# 初始化虛擬檔案系統 (只執行一次)
-if "raw_files" not in st.session_state:
-    # 這是玩家電腦裡原本有的「亂七八糟原始檔」
-    st.session_state.raw_files = [
-        "施工計畫書_核定版.docx", 
-        "開工申報書_用印掃描.jpg",
-        "配筋圖_A3.dwg",
-        "圍籬綠美化設計圖.png",
-        "工地主任證書_含勞保.pdf",
-        "營造業登記證.jpg",
-        "這是不相關的自拍照.jpg"
-    ]
-
-if "processed_files" not in st.session_state:
-    # 這是轉檔好，準備上傳的 PDF
-    st.session_state.processed_files = []
-
-# --- 2. 介面路由 (Router) ---
 def main():
-    st.set_page_config(page_title="跑照大作戰", layout="wide", page_icon="🏗️")
+    st.set_page_config(page_title="跑照大作戰：第一章", layout="wide", page_icon="🏗️")
     
-    # 讀取目前進度
-    status = st.session_state.project_status["step"]
-    
-    # 根據進度顯示對應的頁面
-    if status == "Project_Setup":
-        render_setup_page()
-    elif status == "Paperless_System":
-        render_paperless_page()
-    elif status == "Site_Inspection":
-        render_site_page()
+    st.title("🏗️ 跑照大作戰：Level 1 開工之路")
+    st.markdown("---")
 
-# --- 3. 各階段頁面函式 ---
+    # 顯示 NPC 對話框 (依照進度變化)
+    show_npc_dialog()
 
-def render_setup_page():
-    st.title("📋 新建案：基本資料輸入")
-    st.markdown("請輸入建案的基本參數，系統將自動判斷難度與觸發任務。")
+    # --- 核心儀表板 (Dashboard) ---
+    # 分為左、中、右三區
+    col_architect, col_trials, col_gate = st.columns([1, 2, 1])
+
+    # === Stage 1: 建築師塔 (左) ===
+    with col_architect:
+        render_stage_1()
+
+    # === Stage 2: 七大試煉 (中) ===
+    with col_trials:
+        render_stage_2()
+
+    # === Stage 3: 開工大門 (右) ===
+    with col_gate:
+        render_stage_3()
+
+    # --- 背包系統 (底部) ---
+    st.markdown("---")
+    with st.expander("🎒 隨身背包 (Inventory)", expanded=True):
+        if not st.session_state.game_state["inventory"]:
+            st.caption("背包空空如也...請開始執行任務！")
+        else:
+            # 顯示背包內的道具
+            cols = st.columns(6)
+            for i, item in enumerate(st.session_state.game_state["inventory"]):
+                cols[i % 6].info(f"📄 {item}")
+
+# --- 子功能函式區 ---
+
+def show_npc_dialog():
+    """根據當前狀態顯示 NPC 提示"""
+    state = st.session_state.game_state
     
-    with st.form("setup_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            area = st.number_input("基地面積 (m2)", min_value=0, value=100)
-            duration = st.number_input("預計工期 (月)", min_value=0, value=12)
-        with col2:
-            road_width = st.number_input("臨路寬度 (m)", min_value=0, value=8)
-            is_demolition = st.checkbox("包含拆除工程 (拆併建)")
+    if state["is_construction_started"]:
+        st.success("工地主任：怪手進場啦！兄弟們上工了！ (Game Clear)")
+    elif len(state["completed_trials"]) == 7:
+        st.info("工地主任：文件都齊了！快去按那個「開工申報」按鈕！")
+    elif state["has_permit"]:
+        st.warning("建築師：建照拿去吧。接下來的七大關卡要靠你自己了，別讓業主等太久。")
+    else:
+        st.error("建築師：圖說還在修正中...你急也沒用，沒有【建造執照】你什麼都不能做。")
+
+def render_stage_1():
+    """渲染 Stage 1: 建築師塔"""
+    st.header("🏛️ 建築師塔")
+    
+    has_permit = st.session_state.game_state["has_permit"]
+    
+    if has_permit:
+        st.success("✅ 已取得：建造執照")
+        st.image("https://placeholder.co/300x200?text=Building+Permit", caption="關鍵信物")
+    else:
+        st.info("🔒 任務鎖定中...")
+        st.write("劇情：雖然案子拿到了，但缺少關鍵道具。")
         
-        if st.form_submit_button("建立專案"):
-            # 儲存參數
-            st.session_state.project_status["params"] = {
-                "area": area,
-                "duration": duration,
-                "is_demolition": is_demolition,
-                "road_width": road_width
-            }
-            
-            # 觸發邏輯判定
-            if area * duration >= 4600:
-                st.toast("⚠️ 警告：觸發高難度副本【逕流廢水削減計畫】！", icon="🚨")
-                time.sleep(1)
-            
-            st.success("專案建立成功！進入無紙化系統...")
-            time.sleep(1)
-            
-            # 切換狀態到下一關
-            st.session_state.project_status["step"] = "Paperless_System"
+        # 互動按鈕
+        if st.button("索取信物：建造執照", type="primary"):
+            with st.spinner("建築師簽核中..."):
+                time.sleep(1.5) # 模擬等待
+            st.session_state.game_state["has_permit"] = True
+            st.session_state.game_state["inventory"].append(ARCHITECT_ITEM)
+            st.toast("🎉 獲得道具：建造執照！解鎖 Stage 2")
             st.rerun()
 
-def render_paperless_page():
-    st.title("💻 台北市無紙化上傳系統")
+def render_stage_2():
+    """渲染 Stage 2: 七大試煉"""
+    st.header("⚔️ 七大試煉")
     
-    # 版面配置：左邊工作台，右邊作弊表
-    col_workspace, col_cheat_sheet = st.columns([2, 1])
+    has_permit = st.session_state.game_state["has_permit"]
+    completed = st.session_state.game_state["completed_trials"]
+    
+    # 進度條
+    progress = len(completed) / 7
+    st.progress(progress, text=f"準備進度：{len(completed)} / 7")
 
-    with col_workspace:
-        st.subheader("🛠️ 工程師的桌面")
+    if not has_permit:
+        st.warning("🔒 請先完成 Stage 1 取得建照以解鎖此區域。")
+        return
+
+    # 使用 Tabs 將任務分類，或直接列表
+    # 這裡依照您的需求，用顏色卡片顯示
+    
+    for trial_id, data in TRIALS.items():
+        # 決定卡片外觀
+        is_done = trial_id in completed
+        status_icon = "✅" if is_done else "🔲"
         
-        # --- 區域 A: 檔案轉換區 (The Converter) ---
+        # 利用 Streamlit 的 container 做成卡片感
         with st.container(border=True):
-            st.write("#### 1️⃣ 文件編碼與轉檔機")
-            st.info("請將「原始文件」配對正確的「NW 編碼」進行轉檔。")
-            
-            c1, c2, c3 = st.columns([2, 2, 1])
+            c1, c2 = st.columns([3, 1])
             with c1:
-                # 選擇原始檔
-                if st.session_state.raw_files:
-                    selected_raw = st.selectbox("選擇原始文件", st.session_state.raw_files)
-                else:
-                    st.success("所有文件處理完畢！")
-                    selected_raw = None
-            
+                st.markdown(f"**{status_icon} {data['name']}**")
+                st.caption(f"{data['category']} | {data['desc']}")
             with c2:
-                # 選擇 NW 編碼
-                nw_options = ["請選擇編碼..."] + list(NW_CODES.keys())
-                selected_code = st.selectbox("賦予 NW 編碼", nw_options)
-            
-            with c3:
-                st.write(" ") # 排版佔位
-                st.write(" ") 
-                # 按鈕邏輯
-                if st.button("轉檔 ➡️", type="primary", disabled=(not selected_raw or selected_code == "請選擇編碼...")):
-                    # 1. 從原始清單移除
-                    st.session_state.raw_files.remove(selected_raw)
-                    # 2. 產生新檔名 (模擬清理檔名)
-                    clean_name = selected_raw.split('.')[0].replace("_核定版", "").replace("_用印掃描", "").replace("_A3", "")
-                    new_filename = f"{selected_code}_{clean_name}.pdf"
-                    
-                    # 3. 加入已處理清單
-                    st.session_state.processed_files.append(new_filename)
-                    st.toast(f"✅ 成功轉檔為：{new_filename}")
-                    st.rerun()
+                if not is_done:
+                    # 依據不同類別給予不同按鈕顏色
+                    if st.button("執行", key=trial_id, type=data['color']):
+                        process_trial(trial_id, data)
 
-        # --- 區域 B: 傳送門 (The Portal) ---
-        with st.container(border=True):
-            st.write("#### 2️⃣ 建管處傳送門 (已轉檔文件)")
-            
-            if not st.session_state.processed_files:
-                st.markdown("*目前沒有準備好的 PDF，請先在上方進行轉檔...*")
-            else:
-                # 多選清單
-                files_to_send = st.multiselect(
-                    "勾選要正式掛號的文件", 
-                    st.session_state.processed_files,
-                    default=st.session_state.processed_files
-                )
-                
-                if st.button("🚀 送出電子簽章 (上傳)", type="primary"):
-                    # 簡單的檢查邏輯
-                    uploaded_codes = [f.split('_')[0] for f in files_to_send]
-                    
-                    # 檢查必備文件 (這裡假設 NW0100 和 NW3300 是必須的)
-                    required = ["NW0100", "NW3300"]
-                    missing = [code for code in required if code not in uploaded_codes]
-                    
-                    if missing:
-                        st.error(f"❌ 退件：缺少必要文件！請檢查以下項目：{', '.join(missing)}")
-                    else:
-                        st.balloons()
-                        st.success("✅ 掛號成功！案件已受理。")
-                        time.sleep(2)
-                        st.session_state.project_status["step"] = "Site_Inspection"
-                        st.rerun()
-
-    # 右側：Cheat Sheet
-    with col_cheat_sheet:
-        st.warning("HiCOS 憑證狀態")
-        st.markdown("🟢 **已連線：工商憑證**")
-        
-        with st.expander("📖 NW 編碼對照表 (Cheat Sheet)", expanded=True):
-            df = []
-            for code, data in NW_CODES.items():
-                df.append({"代碼": code, "名稱": data["name"]})
-            st.dataframe(df, hide_index=True)
-            
-        st.markdown("---")
-        st.markdown("#### 💡 提示")
-        st.caption("1. 左上角：把「亂七八糟的檔案」配對「編碼」。")
-        st.caption("2. 記得 `NW3300` 是施工計畫書。")
-        st.caption("3. 轉檔完後，在下方勾選並送出。")
-
-def render_site_page():
-    st.title("🏗️ 現場放樣勘驗")
-    st.markdown("### 目前階段：現場佈置與人員點名")
+def process_trial(trial_id, data):
+    """處理按下任務按鈕後的邏輯"""
+    # 模擬隨機事件
+    if trial_id == "T06": # 鄰房鑑定
+        with st.spinner("正在聯絡阿嬤開門..."):
+            time.sleep(1)
+            st.toast("👵 隨機事件：阿嬤不在家，多花了一天...", icon="🐢")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        # 讀取本地圖片 (請確保檔名為 site_simulation.png 且在同一資料夾)
-        st.image("site_simulation.png", caption="工地現場模擬圖", use_container_width=True)
-        
-        st.subheader("現場設施檢查")
-        if st.button("加裝防溢座 (高60cm)"):
-            st.success("✅ 已安裝防溢座！符合法規。")
+    elif trial_id == "T07": # 拆除施工計畫 (魔王)
+        with st.spinner("審查委員提問中..."):
+            time.sleep(1.5)
+            st.toast("👿 魔王關卡：消耗 10 點智力值回復委員意見！", icon="🧠")
+    else:
+        # 一般任務
+        with st.spinner(f"正在執行：{data['name']}..."):
+            time.sleep(0.5)
+
+    # 完成任務
+    st.session_state.game_state["completed_trials"].append(trial_id)
+    # 獲得對應道具 (簡單模擬)
+    st.session_state.game_state["inventory"].append(f"{data['name']} 核准函")
+    st.rerun()
+
+def render_stage_3():
+    """渲染 Stage 3: 開工大門"""
+    st.header("🚪 開工大門")
+    
+    completed_count = len(st.session_state.game_state["completed_trials"])
+    is_started = st.session_state.game_state["is_construction_started"]
+    
+    if is_started:
+        st.balloons()
+        st.success("🎉 GAME CLEAR！")
+        st.write("已進入施工階段。")
+        st.image("https://placeholder.co/300x400?text=Construction+Start", caption="怪手進場")
+    
+    else:
+        # 判斷是否滿足 IF (Items_Count == 7)
+        if completed_count == 7:
+            st.success("🔓 封印解除！")
+            st.write("所有文件齊全，準備申報。")
             
-    with col2:
-        st.subheader("人員大合照 (QTE)")
-        st.write("請確保所有人員到齊才能拍照。")
-        
-        col_p1, col_p2 = st.columns(2)
-        with col_p1:
-            if st.button("召喚：工地主任"):
-                st.info("工地主任：到！")
-        with col_p2:
-            if st.button("召喚：專任工程人員"):
-                st.info("技師：我來了！")
-                
-        if st.button("📸 拍攝勘驗合照"):
-            st.success("拍攝完成！進入結構體階段 (待續...)")
-            st.balloons()
+            if st.button("🚀 申報開工 (Submit)", type="primary", use_container_width=True):
+                with st.spinner("文件飛入政府機關...蓋章中..."):
+                    time.sleep(2)
+                st.session_state.game_state["is_construction_started"] = True
+                st.rerun()
+        else:
+            st.error(f"🔒 大門深鎖 ({completed_count}/7)")
+            st.caption("請先收集完所有 Stage 2 的核准文件。")
+            st.button("🚫 申報開工", disabled=True, use_container_width=True)
 
 if __name__ == "__main__":
     main()
