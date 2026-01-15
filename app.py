@@ -3,14 +3,12 @@ import time
 import random
 
 # ==============================================================================
-# 1. 遊戲資料庫 (Game Database) - 包含所有參數、說明與規則
+# 1. 遊戲資料庫 (Game Database)
 # ==============================================================================
 
-# --- 基礎設定 ---
 REGIONS = ["台北市 (Taipei)", "新北市 (New Taipei)"]
 PROJECT_TYPES = ["素地新建 (Empty Land)", "拆併建照 (Demolition & Build)"]
 
-# --- 法規門檻 ---
 THRESHOLDS = {
     "POLLUTION_FACTOR": 4600,
     "B8_AREA": 500,
@@ -19,7 +17,6 @@ THRESHOLDS = {
     "GREEN_BUILDING_COST": 50000000
 }
 
-# --- Ch1 戰略參數 ---
 RESOURCE_RATES = {"STEEL": 0.15, "CONCRETE": 0.8}
 
 ENV_OPTIONS = {
@@ -33,7 +30,16 @@ DIPLOMACY_STRATEGIES = {
     "DOVE": {"name": "敦親睦鄰 (鴿派)", "cost": 80000, "anger": -20, "desc": "送禮賠笑，花錢消災。鄰居心情好。"}
 }
 
-# --- Ch2 施工戰略參數 ---
+DEMO_SEALS = {
+    "D01": {"name": "鄰房現況鑑定報告書", "code": "NW2300"},
+    "D02": {"name": "營建剩餘土石方(B5)處理計畫", "code": "NW2600"},
+    "D03": {"name": "營建混合物(B8)處理計畫", "code": "NW2700"},
+    "D04": {"name": "防空避難室撤除核准函", "code": "Doc_Police"},
+    "D05": {"name": "建築師監拆報告書", "code": "NW2500"},
+    "D06": {"name": "建築物拆除施工計畫書", "code": "NW2400"},
+    "D07": {"name": "行政驗收 (建照科圖說抽查)", "code": "Check_Arch"},
+}
+
 CONSTRUCTION_METHODS = {
     "BOTTOM_UP": {
         "name": "順打工法 (Bottom-Up)",
@@ -62,17 +68,6 @@ TEAM_MEMBERS = {
     ]
 }
 
-# --- 任務與文件清單 ---
-DEMO_SEALS = {
-    "D01": {"name": "鄰房現況鑑定報告書", "code": "NW2300"},
-    "D02": {"name": "營建剩餘土石方(B5)處理計畫", "code": "NW2600"},
-    "D03": {"name": "營建混合物(B8)處理計畫", "code": "NW2700"},
-    "D04": {"name": "防空避難室撤除核准函", "code": "Doc_Police"},
-    "D05": {"name": "建築師監拆報告書", "code": "NW2500"},
-    "D06": {"name": "建築物拆除施工計畫書", "code": "NW2400"},
-    "D07": {"name": "行政驗收 (建照科圖說抽查)", "code": "Check_Arch"},
-}
-
 GEMS = {
     "GEM_GUILD": {"name": "公會寶石", "desc": "施工計畫外審"},
     "GEM_PIPE": {"name": "管線寶石", "desc": "五大管線查詢"},
@@ -82,7 +77,6 @@ GEMS = {
     "GEM_ADMIN": {"name": "建管寶石", "desc": "計畫書彙整"},
 }
 
-# --- NW 編碼表 (含新手注意事項 Tips) ---
 NW_CODES = {
     "NW0100": {
         "name": "B11-1 建築工程開工申報書", 
@@ -177,7 +171,6 @@ RANDOM_EVENTS = [
     {"id": "E07", "title": "🧱 氯離子超標", "desc": "混凝土車快篩發現數值異常！", "options": [{"text": "整車退貨", "effect": "delay", "val": 1, "msg": "進度延誤1週"}, {"text": "賭一把灌下去", "effect": "disaster", "val": 0, "msg": "變成海砂屋！Game Over"}]}
 ]
 
-# --- 建築百科 (Glossary) ---
 GAME_GLOSSARY = {
     "數位憑證類": {
         "工商憑證卡": "公司的數位身分證。營造廠在進行線上申報（如開工、勘驗）時，必須插入此卡進行電子簽章，證明是公司本人操作。",
@@ -240,15 +233,6 @@ if 'game_state' not in st.session_state:
         "guide_wall_progress": 0,
         "guide_wall_inspected": False,
         "boss_hp": 100,
-        "excavation_progress": 0,
-        "shoring_installed": False,
-        "foundation_done": False,
-        "current_floor": "B1",
-        "floor_status": {
-            "B1": {"rebar": False, "form": False, "pour": False, "report": False, "test_week": None},
-            "1F": {"rebar": False, "form": False, "pour": False, "report": False, "test_week": None},
-            "2F": {"rebar": False, "form": False, "pour": False, "report": False, "test_week": None},
-        },
         "logs": [],
         "paperless_raw_files": [
             "B11-1_開工申報書_已用印.docx", 
@@ -265,7 +249,7 @@ if 'game_state' not in st.session_state:
     }
 
 def main():
-    st.set_page_config(page_title="跑照大作戰：完全修復版", layout="wide", page_icon="🏗️")
+    st.set_page_config(page_title="跑照大作戰：精簡版", layout="wide", page_icon="🏗️")
     
     if st.session_state.game_state["active_event"]:
         render_event_dialog()
@@ -399,15 +383,14 @@ def render_main_game():
 
     st.title(f"🏗️ {cfg['type']}")
     
-    tabs = st.tabs(["Ch1 開工", "Ch2 計畫(戰略)", "Ch3 拆除", "Ch4 導溝", "Ch5 放樣", "Ch6 地下城", "Ch7 巴別塔"])
+    # 移除 Ch6/Ch7 的 Tab，只保留 Ch1~Ch5
+    tabs = st.tabs(["Ch1 開工", "Ch2 計畫(戰略)", "Ch3 拆除", "Ch4 導溝", "Ch5 放樣(決戰)"])
     
     with tabs[0]: render_chapter_1()
     with tabs[1]: render_chapter_2()
     with tabs[2]: render_chapter_3()
     with tabs[3]: render_chapter_4()
     with tabs[4]: render_chapter_5()
-    with tabs[5]: render_chapter_6()
-    with tabs[6]: render_chapter_7()
 
 def advance_week():
     st.session_state.game_state["current_week"] += 1
@@ -422,7 +405,6 @@ def render_chapter_1():
     st.header("📂 第一章：開工申報 (戰略部署)")
     p_data = st.session_state.game_state["project_data"]
     
-    # 變數防呆初始化
     env_choice = "LOW"
     dip_choice = "HAWK"
     g02 = False
@@ -474,11 +456,11 @@ def render_chapter_1():
                         st.markdown(f"**{icon} {data['name']}**")
                         if not is_done:
                             if sid == "D01":
-                                if st.button("鑑定", key=sid):
+                                if st.button("鑑定", key=sid, help="請公會技師至鄰房拍照記錄，做為未來鄰損理賠的基準。"):
                                     st.session_state.game_state["demo_seals_cleared"].append(sid)
                                     st.session_state.game_state["is_demo_shield_active"] = True
                                     st.rerun()
-                                if st.button("簽切結", key=f"{sid}_risk"):
+                                if st.button("簽切結", key=f"{sid}_risk", help="風險極大！若發生鄰損將無任何抗辯能力。"):
                                     st.session_state.game_state["demo_seals_cleared"].append(sid)
                                     st.session_state.game_state["risk_level"] += 50
                                     st.rerun()
@@ -492,7 +474,7 @@ def render_chapter_1():
 
         st.subheader("🌳 環保任務")
         with st.container(border=True):
-            st.checkbox("G01 空污費申報 (NW1000)", value=True, disabled=True)
+            st.checkbox("G01 空污費申報 (NW1000)", value=True, disabled=True, help=GAME_GLOSSARY["計畫與文件類"]["逕流廢水削減計畫"])
             
             g02 = False 
             
@@ -507,7 +489,7 @@ def render_chapter_1():
                 f = p_data["area"] * p_data["duration"]
                 if f >= THRESHOLDS["POLLUTION_FACTOR"]:
                     chk_val = st.session_state.game_state.get("g02_checked", False)
-                    g02 = st.checkbox(f"G02 逕流廢水 (係數{f}) (NW1100)", value=chk_val, key="g02_box")
+                    g02 = st.checkbox(f"G02 逕流廢水 (係數{f}) (NW1100)", value=chk_val, key="g02_box", help="門檻：施工面積x工期 > 4600。需製作計畫書送環保局審查。")
                     st.session_state.game_state["g02_checked"] = g02
                 else:
                     st.write("~~G02 逕流廢水~~ (免辦)")
@@ -518,7 +500,6 @@ def render_chapter_1():
     with col_system:
         st.subheader("💻 數位憑證")
         if not st.session_state.game_state["hicos_connected"]:
-            # 加入 Help 提示
             if st.button("插入：工商憑證卡", help=GAME_GLOSSARY["數位憑證類"]["工商憑證卡"]):
                 time.sleep(0.5)
                 st.session_state.game_state["hicos_connected"] = True
@@ -561,7 +542,6 @@ def render_paperless_minigame():
             code_opts = ["請選擇..."] + list(NW_CODES.keys())
             sel_code = col_b.selectbox("NW 編碼", code_opts)
             
-            # 顯示提示 Tips
             if sel_code != "請選擇...":
                 item_data = NW_CODES[sel_code]
                 st.info(f"💡 **申辦小撇步**\n\n{item_data['tips']}")
@@ -601,7 +581,6 @@ def render_chapter_2():
         st.warning("🔒 鎖定中：請先完成第一章。")
         return
     
-    # 變數防呆初始化
     sel_key = "BOTTOM_UP"
     dir_valid = False
     layout_valid = False
@@ -786,7 +765,7 @@ def render_chapter_4():
         else:
             st.info("請先完成施作。")
 
-# --- Ch5: 放樣勘驗 ---
+# --- Ch5: 放樣勘驗 (決戰) ---
 def render_chapter_5():
     st.header("🏯 終章：放樣勘驗")
     if not st.session_state.game_state["guide_wall_inspected"]:
@@ -800,120 +779,7 @@ def render_chapter_5():
         st.rerun()
     if st.session_state.game_state["boss_hp"] == 0:
         st.balloons()
-        st.success("🏆 恭喜通關！准予放樣！建築物正式長出來啦！")
-
-# --- Ch6: 地下城 ---
-def render_chapter_6():
-    st.header("🚜 Ch6: 地下城危機 (基礎開挖)")
-    if st.session_state.game_state["boss_hp"] > 0:
-        st.warning("🔒 請先完成 Ch5 放樣勘驗。")
-        return
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("🛡️ 安全支撐")
-        if st.session_state.game_state["shoring_installed"]:
-            st.success("✅ 安全支撐已架設")
-        else:
-            st.warning("⚠️ 尚未架設支撐！")
-            if st.button("架設 H 型鋼支撐"):
-                st.session_state.game_state["shoring_installed"] = True
-                add_log("安全支撐架設完成。")
-                st.rerun()
-
-    with col2:
-        st.subheader("🏗️ 土方開挖")
-        prog = st.session_state.game_state["excavation_progress"]
-        st.progress(prog / 100, text=f"開挖進度: {prog}%")
-        
-        if prog < 100:
-            if st.button("挖土 & 運棄 (B5)"):
-                if not st.session_state.game_state["shoring_installed"]:
-                    st.error("💥 危險！未架設支撐就開挖！")
-                    st.session_state.game_state["risk_level"] += 20
-                    add_log("違規開挖，風險激增！")
-                else:
-                    st.session_state.game_state["excavation_progress"] += 25
-                    add_log("土方開挖進度 +25%")
-                    st.rerun()
-        else:
-            st.success("開挖完成！")
-            if st.button("前往結構體工程"):
-                st.session_state.game_state["foundation_done"] = True
-                st.rerun()
-
-# --- Ch7: 巴別塔 ---
-def render_chapter_7():
-    st.header("🏢 Ch7: 巴別塔試煉 (結構體)")
-    if not st.session_state.game_state.get("foundation_done"):
-        st.warning("🔒 請先完成 Ch6 基礎開挖。")
-        return
-
-    floors = ["B1", "1F", "2F"]
-    curr_floor = st.selectbox("選擇施工樓層", floors, index=floors.index(st.session_state.game_state["current_floor"]))
-    st.session_state.game_state["current_floor"] = curr_floor
-    
-    status = st.session_state.game_state["floor_status"][curr_floor]
-    
-    st.subheader(f"目前樓層：{curr_floor}")
-    c1, c2, c3, c4 = st.columns(4)
-    
-    with c1:
-        st.markdown("#### 1. 綁紮")
-        if status["rebar"]: st.success("已完成")
-        else:
-            if st.button("綁鋼筋"):
-                status["rebar"] = True
-                st.rerun()
-                
-    with c2:
-        st.markdown("#### 2. 封模")
-        if status["form"]: st.success("已完成")
-        else:
-            if not status["rebar"]: st.caption("先綁筋");
-            else:
-                if st.button("封板模"): status["form"] = True; st.rerun()
-
-    with c3:
-        st.markdown("#### 3. 勘驗")
-        if status["report"]: st.success("已核准")
-        else:
-            if not status["form"]: st.caption("先封模");
-            else:
-                if curr_floor == "2F": st.info("🔥 此層需公會抽查！")
-                
-                prev_floor_map = {"1F": "B1", "2F": "1F"}
-                can_report = True
-                
-                if curr_floor in prev_floor_map:
-                    prev_f = prev_floor_map[curr_floor]
-                    prev_test_week = st.session_state.game_state["floor_status"][prev_f]["test_week"]
-                    current_week = st.session_state.game_state["current_week"]
-                    
-                    if prev_test_week is None:
-                        st.error("上一層忘了做試體！")
-                        can_report = False
-                    elif (current_week - prev_test_week) < 4:
-                        wait = 4 - (current_week - prev_test_week)
-                        st.warning(f"⏳ 試體養護中...還需 {wait} 週")
-                        can_report = False
-                
-                if can_report:
-                    if st.button("申報勘驗"):
-                        status["report"] = True
-                        st.balloons()
-                        add_log(f"{curr_floor} 勘驗通過。"); st.rerun()
-
-    with c4:
-        st.markdown("#### 4. 澆置")
-        if status["pour"]: st.success("已完成")
-        else:
-            if not status["report"]: st.caption("先勘驗");
-            else:
-                if st.button("灌漿 & 做試體"):
-                    status["pour"] = True
-                    status["test_week"] = st.session_state.game_state["current_week"]
-                    add_log(f"{curr_floor} 灌漿完成，試體製作"); st.rerun()
+        st.success("🏆 恭喜通關！准予放樣！(展示版終點)")
 
 def add_log(msg):
     st.session_state.game_state["logs"].append(f"Week {st.session_state.game_state['current_week']}: {msg}")
