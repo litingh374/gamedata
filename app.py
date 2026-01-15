@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+# 確保 gamedata.py 和 app.py 在同一層目錄
 from gamedata import TRIALS, ARCHITECT_ITEM
 
 # --- 1. 遊戲初始化 (Session State) ---
@@ -70,7 +71,8 @@ def render_stage_1():
     
     if has_permit:
         st.success("✅ 已取得：建造執照")
-        st.image("https://placeholder.co/300x200?text=Building+Permit", caption="關鍵信物")
+        # 如果您有上傳圖片，可以用 st.image("您的圖檔名.png")，否則使用預設圖
+        st.image("https://placeholder.co/300x200?text=Building+Permit", caption="關鍵信物", use_container_width=True)
     else:
         st.info("🔒 任務鎖定中...")
         st.write("劇情：雖然案子拿到了，但缺少關鍵道具。")
@@ -108,12 +110,22 @@ def render_stage_2():
         with st.container(border=True):
             c1, c2 = st.columns([3, 1])
             with c1:
-                st.markdown(f"**{status_icon} {data['name']}**")
+                # 定義顏色對應表 (將 gamedata 中的顏色代碼轉為 Markdown 顏色)
+                color_map = {
+                    "success": "green",
+                    "primary": "blue",
+                    "warning": "orange"
+                }
+                text_color = color_map.get(data['color'], "blue")
+                
+                # 使用 Markdown 顯示帶有顏色的標題
+                st.markdown(f"**{status_icon} :{text_color}[{data['name']}]**")
                 st.caption(f"{data['category']} | {data['desc']}")
+            
             with c2:
                 if not is_done:
-                    # 依據不同類別給予不同按鈕顏色
-                    if st.button("執行", key=trial_id, type=data['color']):
+                    # 修正點：按鈕 type 統一設為 "primary" 或 "secondary"
+                    if st.button("執行", key=trial_id, type="primary"):
                         process_trial(trial_id, data)
 
 def process_trial(trial_id, data):
@@ -150,7 +162,8 @@ def render_stage_3():
         st.balloons()
         st.success("🎉 GAME CLEAR！")
         st.write("已進入施工階段。")
-        st.image("https://placeholder.co/300x400?text=Construction+Start", caption="怪手進場")
+        # 如果有上傳開工圖，可以改用 st.image("開工圖.png")
+        st.image("https://placeholder.co/300x400?text=Construction+Start", caption="怪手進場", use_container_width=True)
     
     else:
         # 判斷是否滿足 IF (Items_Count == 7)
