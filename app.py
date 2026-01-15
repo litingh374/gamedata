@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 import random
-# 確保您的 gamedata.py 已經包含上一回新增的 RANDOM_EVENTS, STRUCTURE_ITEMS 等資料
+# 確保 gamedata.py 是最新版 (包含 RANDOM_EVENTS, NW_CODES 等)
 from gamedata import REGIONS, PROJECT_TYPES, THRESHOLDS, DEMO_SEALS, GREEN_QUEST, GEMS, SETTING_OUT_STEPS, NW_CODES, RANDOM_EVENTS
 
 # ==========================================
@@ -55,7 +55,7 @@ if 'game_state' not in st.session_state:
         
         "logs": [],
         
-        # --- 無紙化檔案 (關鍵修復：恢復原始檔列表) ---
+        # --- 無紙化檔案 (預設原始檔) ---
         "paperless_raw_files": [
             "開工申報書_用印.docx", "空污費收據.jpg", "拆除施工計畫_核定.pdf",
             "鄰房鑑定報告.pdf", "逕流廢水核備函.jpg", "工地主任自拍照.jpg",
@@ -109,7 +109,7 @@ def resolve_event(opt):
     st.rerun()
 
 # ==========================================
-# 遊戲大廳 (恢復完整參數輸入)
+# 遊戲大廳
 # ==========================================
 def render_launcher():
     st.title("🏗️ 專案啟動：工程情報輸入")
@@ -217,7 +217,7 @@ def advance_week():
     st.rerun()
 
 # ==========================================
-# Ch1: 開工申報 (完整版：含封印、迷霧、數位門禁)
+# Ch1: 開工申報 (修復變數錯誤)
 # ==========================================
 def render_chapter_1():
     st.header("📂 第一章：開工申報")
@@ -237,7 +237,7 @@ def render_chapter_1():
                 for sid, data in DEMO_SEALS.items():
                     is_done = sid in completed
                     icon = "✅" if is_done else "🔒"
-                    with cols[int(sid[-1])%3]: # 簡單排列
+                    with cols[int(sid[-1])%3]:
                         st.markdown(f"**{icon} {data['name']}**")
                         if not is_done:
                             if sid == "D01":
@@ -257,10 +257,15 @@ def render_chapter_1():
         else:
             seals_ok = True
 
-        # B. 環保任務 (迷霧版)
+        # B. 環保任務
         st.subheader("🌳 環保任務")
         with st.container(border=True):
             st.checkbox("G01 空污費", value=True, disabled=True)
+            
+            # --- 修正點：初始化變數 g02 ---
+            g02 = False
+            # --------------------------
+
             if p_data["area_unknown"] or p_data["duration_unknown"]:
                 st.info("🔒 G02: 資料不明...")
                 if st.button("📞 打電話確認"):
@@ -275,6 +280,7 @@ def render_chapter_1():
                 else:
                     st.write("~~G02 逕流廢水~~ (免辦)")
                     g02 = True
+            
             green_ok = g02
 
     with col_system:
@@ -299,13 +305,13 @@ def render_chapter_1():
                 st.success("🎉 開工申報完成！")
 
 # ==========================================
-# 無紙化小遊戲 (關鍵修復：功能回歸！)
+# 無紙化小遊戲 (回歸)
 # ==========================================
 def render_paperless_minigame():
     st.title("💻 台北市無紙化上傳系統")
     st.info("任務：請將左側的原始檔案，配對正確的 NW 編碼進行轉檔，最後勾選送出。")
     
-    if st.button("🔙 放棄並返回"):
+    if st.button("🔙 放棄並返回列表"):
         st.session_state.game_state["doing_paperless"] = False
         st.rerun()
 
@@ -316,13 +322,11 @@ def render_paperless_minigame():
             col_a, col_b, col_c = st.columns([2, 2, 1])
             
             raws = st.session_state.game_state["paperless_raw_files"]
-            # 只有當還有原始檔時才顯示
             sel_raw = col_a.selectbox("選擇原始檔", raws) if raws else None
             sel_code = col_b.selectbox("NW 編碼", ["請選擇..."] + list(NW_CODES.keys()))
             
             if col_c.button("轉檔 ➡️", type="primary", disabled=not sel_raw):
                 st.session_state.game_state["paperless_raw_files"].remove(sel_raw)
-                # 模擬轉檔命名
                 clean_name = sel_raw.split('.')[0].replace("_用印","").replace("_核定","")
                 new_name = f"{sel_code}_{clean_name}.pdf"
                 st.session_state.game_state["paperless_processed_files"].append(new_name)
@@ -338,7 +342,6 @@ def render_paperless_minigame():
             to_upload = st.multiselect("勾選上傳", processed, default=processed)
             
             if st.button("🚀 確認送出 (啟動計時)", type="primary", use_container_width=True):
-                # 簡易檢查：必須要有開工申報書 (NW0100)
                 if any("NW0100" in f for f in to_upload):
                     st.session_state.game_state["commencement_done"] = True
                     st.session_state.game_state["doing_paperless"] = False
@@ -354,7 +357,7 @@ def render_paperless_minigame():
         st.dataframe(data, hide_index=True, use_container_width=True)
 
 # ==========================================
-# Ch2: 施工計畫 (完整版：含寶石收集)
+# Chapter 2~5 (完整邏輯)
 # ==========================================
 def render_chapter_2():
     st.header("📜 第二章：施工計畫")
@@ -385,9 +388,6 @@ def render_chapter_2():
     if st.session_state.game_state["plan_approved"]:
         st.success("✅ 施工計畫已核定")
 
-# ==========================================
-# Ch3: 拆除整備 (完整版：含B5陷阱與風險)
-# ==========================================
 def render_chapter_3():
     st.header("🚜 第三章：拆除整備")
     if not st.session_state.game_state["plan_approved"]:
@@ -434,9 +434,6 @@ def render_chapter_3():
         st.session_state.game_state["demo_phase_passed"] = True
         st.success("🌟 拆除階段完成！")
 
-# ==========================================
-# Ch4: 導溝勘驗 (完整版：含雙重檢查)
-# ==========================================
 def render_chapter_4():
     st.header("🧱 第四章：導溝勘驗")
     if not st.session_state.game_state["plan_approved"]:
@@ -471,9 +468,6 @@ def render_chapter_4():
         else:
             st.info("請先完成施作。")
 
-# ==========================================
-# Ch5: 放樣 BOSS (完整版)
-# ==========================================
 def render_chapter_5():
     st.header("🏯 終章：放樣勘驗")
     if not st.session_state.game_state["guide_wall_inspected"]:
