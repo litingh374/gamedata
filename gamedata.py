@@ -4,34 +4,37 @@
 REGIONS = ["台北市 (Taipei)", "新北市 (New Taipei)"]
 PROJECT_TYPES = ["素地新建 (Empty Land)", "拆併建照 (Demolition & Build)"]
 
-# === 任務大水庫 (Master Task List) ===
-# tags: 標記此任務屬於哪個地區或案型
-# phase: 屬於遊戲的哪個階段 (Plan=計畫, Demo=拆除, Construct=放樣)
-MASTER_TASKS = [
-    # --- 通用任務 ---
-    {"id": "T01", "name": "結構外審 (建築師)", "phase": "Plan", "type": "ALL", "region": "ALL", "desc": "等待建築師完成圖說"},
-    {"id": "T02", "name": "跑照寶石收集", "phase": "Plan", "type": "ALL", "region": "ALL", "desc": "收集交通、公會等六大寶石"},
-    
-    # --- 拆除專屬任務 (只在拆併建出現) ---
-    {"id": "D01", "name": "拆除執照申請", "phase": "Demo", "type": "DEMO", "region": "ALL", "desc": "取得拆除許可Buff"},
-    {"id": "D02", "name": "B5 拆除廢棄物結案", "phase": "Demo", "type": "DEMO", "region": "ALL", "desc": "關鍵！未完成無法放樣"},
-    {"id": "D03", "name": "鄰房鑑定 (拆除前)", "phase": "Demo", "type": "DEMO", "region": "ALL", "desc": "開啟防禦護盾"},
+# === Chapter 1: 開工申報 ===
+TRIALS = {
+    "T01": {"name": "空污費申報", "color": "success", "desc": "繳費取得收據"},
+    "T02": {"name": "逕流廢水計畫", "color": "success", "desc": "環保局核定函"},
+    "T03": {"name": "廢棄物計畫", "color": "success", "desc": "取得管制編號"},
+    "T04": {"name": "建管開工(無紙化)", "color": "primary", "desc": "關鍵！上傳圖說"},
+    "T05": {"name": "土方計畫 (B5)", "color": "primary", "desc": "土方憑證"},
+    "T06": {"name": "鄰房現況鑑定", "color": "warning", "desc": "取得鑑定報告"},
+    "T07": {"name": "施工前說明會", "color": "warning", "desc": "里長簽名確認"},
+}
 
-    # --- 地區特殊任務 ---
-    {"id": "R01", "name": "台北市無紙化上傳", "phase": "Plan", "type": "ALL", "region": "Taipei", "desc": "使用虛擬桌面系統"},
-    {"id": "R02", "name": "新北水土保持計畫", "phase": "Plan", "type": "ALL", "region": "New Taipei", "desc": "山坡地特殊任務"},
-]
+# === Chapter 2: 六大寶石 ===
+GEMS = {
+    "GEM_GUILD": {"name": "公會寶石", "desc": "施工計畫外審"},
+    "GEM_PIPE": {"name": "管線寶石", "desc": "五大管線查詢"},
+    "GEM_TRAFFIC": {"name": "交通寶石", "desc": "交維計畫"},
+    "GEM_SURVEY": {"name": "測量寶石", "desc": "路心樁復原"},
+    "GEM_SAFETY": {"name": "勞安寶石", "desc": "危險場所評估"},
+    "GEM_ADMIN": {"name": "建管寶石", "desc": "計畫書彙整"},
+}
 
-# === 放樣 BOSS 關卡資料 ===
+# === Chapter 5: 放樣 BOSS (改為 Ch5) ===
 SETTING_OUT_STEPS = [
     {"id": "S1", "name": "網路掛件", "desc": "系統檢核", "hp": 20},
     {"id": "S2", "name": "紙本掛件", "desc": "承辦核對", "hp": 20},
-    {"id": "S3", "name": "現場會勘", "desc": "建築師與公務員到場", "hp": 30},
-    {"id": "S4", "name": "文案核對", "desc": "圖說一致性", "hp": 15},
-    {"id": "S5", "name": "簽核准用", "desc": "取得放樣核准函", "hp": 15},
+    {"id": "S3", "name": "現場會勘", "desc": "BOSS 現身", "hp": 30},
+    {"id": "S4", "name": "文案核對", "desc": "圖說檢查", "hp": 15},
+    {"id": "S5", "name": "簽核准用", "desc": "核准函", "hp": 15},
 ]
 
-# === 無紙化小遊戲資料 (保留) ===
+# === 無紙化小遊戲資料 ===
 NW_CODES = {
     "NW0100": {"name": "建築工程開工申報書", "type": "doc"},
     "NW3300": {"name": "施工計畫書", "type": "doc"},
